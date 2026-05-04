@@ -1,0 +1,49 @@
+# ── Sensitive files — NEVER commit these ──────────────────────────────────
+.env
+*.env
+.env.*
+!.env.example
+
+# Google service account credentials
+credentials.json
+credintials.json
+*.json
+!package.json
+!package-lock.json
+!tsconfig.json
+!next-env.d.ts
+
+# API keys
+key
+
+# ── Python ────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+.venv/
+venv/
+env/
+.env/
+*.egg-info/
+dist/
+build/
+*.so
+
+# ── Uploaded images (runtime data) ────────────────────────────────────────
+backend/uploads/
+
+# ── Frontend build artifacts ───────────────────────────────────────────────
+frontend/.next/
+frontend/node_modules/
+frontend/out/
+frontend/.cache/
+
+# ── OS & editor ───────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
