@@ -143,10 +143,12 @@ async def _call_model(
     mime: str,
     model: str,
     filename: str,
-) -> Optional[Dict[str, Any]]:
+) -> Tuple[Optional[Dict[str, Any]], bool]:
     """
     Call one OpenRouter vision model.
-    Returns parsed dict on success, None on any error.
+    Returns (parsed_dict, is_rate_limited).
+      - parsed_dict: result on success, None on error
+      - is_rate_limited: True if HTTP 429 received
     """
     payload = {
         "model": model,
@@ -181,9 +183,15 @@ async def _call_model(
                 json=payload,
                 headers=headers,
             )
+            if resp.status_code == 429:
+                logger.warning(
+                    "[%s] HTTP 429 from model=%s: %s",
+                    filename, model, resp.text[:200],
+                )
+                return None, True  # rate limited
             resp.raise_for_status()
             raw_content = resp.json()["choices"][0]["message"]["content"]
-            return json.loads(raw_content)
+            return json.loads(raw_content), False
 
     except httpx.HTTPStatusError as exc:
         logger.warning(
@@ -197,7 +205,7 @@ async def _call_model(
     except Exception as exc:
         logger.warning("[%s] Unexpected error from model=%s: %s", filename, model, exc)
 
-    return None
+    return None, False
 
 
 # ── Main extraction entrypoint ────────────────────────────────────────────
@@ -216,6 +224,7 @@ async def extract_from_image(
     """
     b64, mime = _encode_image(image_path)
     method = "primary"
+    all_rate_limited = True  # track if ALL failures are 429s
 
     async with _get_semaphore():
         for model_idx, model in enumerate(_MODELS):
@@ -229,7 +238,10 @@ async def extract_from_image(
                     "[%s] model=%s attempt=%d/%d", filename, model, attempt, 2
                 )
 
-                raw = await _call_model(b64, mime, model, filename)
+                raw, is_rate_limited = await _call_model(b64, mime, model, filename)
+
+                if not is_rate_limited:
+                    all_rate_limited = False  # at least one non-429 failure
 
                 if raw is None:
                     logger.warning(
@@ -237,6 +249,7 @@ async def extract_from_image(
                     )
                     continue
 
+                all_rate_limited = False
                 is_valid, reason = validate_result(raw)
                 if is_valid:
                     logger.info(
@@ -250,16 +263,21 @@ async def extract_from_image(
                         filename, model, attempt, reason,
                     )
 
-    # ── All vision models exhausted → Gemini AI Studio fallback ─────────────
-    logger.warning("[%s] All OpenRouter models failed. Trying Gemini AI Studio...", filename)
-    from core.gemini_ocr import extract_from_image as gemini_extract
-    raw = await gemini_extract(image_path, filename)
-    if raw is not None:
-        is_valid, reason = validate_result(raw)
-        if is_valid:
-            return sanitize(raw), "fallback", "success"
-        else:
-            logger.warning("[%s] Gemini result failed validation: %s", filename, reason)
+    # ── All OpenRouter models failed ──────────────────────────────────────────
+    if all_rate_limited:
+        logger.warning(
+            "[%s] All OpenRouter models hit 429 rate limit. Switching to Puter fallback...",
+            filename,
+        )
+        from core.puter_ocr import extract_from_image as puter_extract
+        raw = await puter_extract(image_path, filename)
+        if raw is not None:
+            is_valid, reason = validate_result(raw)
+            if is_valid:
+                return sanitize(raw), "fallback", "success"
+            logger.warning("[%s] Puter result failed validation: %s", filename, reason)
+    else:
+        logger.warning("[%s] All OpenRouter models failed (non-rate-limit errors)", filename)
 
     logger.error("[%s] All methods failed. Returning empty result.", filename)
     return _empty_result(), "fallback", "failed"
