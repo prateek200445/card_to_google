@@ -2,7 +2,7 @@
  * Typed API client for the Card Extractor backend.
  */
 
-const BASE = "/api";
+const BASE = process.env.NEXT_PUBLIC_API_URL || "/api";
 
 export interface CardResult {
   image: string;
