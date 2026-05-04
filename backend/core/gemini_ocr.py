@@ -108,10 +108,17 @@ async def extract_from_image(
 
         data = resp.json()
 
-        # Extract text from response
+        # Extract text — handle thinking models (skip thought parts)
         try:
-            text = data["candidates"][0]["content"]["parts"][0]["text"]
-        except (KeyError, IndexError) as exc:
+            parts = data["candidates"][0]["content"]["parts"]
+            # Find the first non-thought part (actual response)
+            text = next(
+                (p["text"] for p in parts if not p.get("thought", False)),
+                None,
+            )
+            if text is None:
+                text = parts[0].get("text", "")
+        except (KeyError, IndexError, StopIteration) as exc:
             logger.warning("[%s] Gemini unexpected response shape: %s | raw: %s", filename, exc, str(data)[:200])
             return None
 
