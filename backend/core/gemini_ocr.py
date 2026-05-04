@@ -88,7 +88,6 @@ async def extract_from_image(
         ],
         "generationConfig": {
             "temperature": 0.0,
-            "responseMimeType": "application/json",
         },
     }
 
@@ -122,7 +121,13 @@ async def extract_from_image(
             text = text.split("```")[1]
             if text.startswith("json"):
                 text = text[4:]
+        text = text.strip()
 
+        if not text:
+            logger.warning("[%s] Gemini returned empty text body", filename)
+            return None
+
+        logger.debug("[%s] Gemini raw text (first 200): %s", filename, text[:200])
         result = json.loads(text)
         logger.info("[%s] ✓ Gemini AI Studio extraction succeeded (model=%s)", filename, _MODEL)
         return result
