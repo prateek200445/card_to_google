@@ -2,7 +2,9 @@
 OpenRouter OCR Engine — unified image → structured JSON extractor.
 
 Pipeline per image:
-  encode image → call primary model → validate → retry once → fallback models → return
+  1. Try each OpenRouter vision model (primary + fallbacks), 2 attempts each
+  2. If ALL vision models fail → Google Vision API (pure OCR) + text-only LLM (structuring)
+  3. Return empty result with failed status if everything fails
 
 Concurrency: controlled via asyncio.Semaphore (MAX_CONCURRENCY env var, default 6).
 """
@@ -29,12 +31,15 @@ _API_KEY = os.getenv("OPENROUTER_API_KEY", "")
 _REQUEST_TIMEOUT = float(os.getenv("REQUEST_TIMEOUT", "45.0"))
 _MAX_CONCURRENCY = int(os.getenv("MAX_CONCURRENCY", "6"))
 
-# Model priority: primary first, then fallbacks
+# Vision model priority: primary first, then fallbacks
 _MODELS: List[str] = [
     os.getenv("OPENROUTER_PRIMARY_MODEL", "baidu/qianfan-ocr-fast:free"),
-    os.getenv("OPENROUTER_FALLBACK_1", "google/gemini-2.0-flash-001"),
+    os.getenv("OPENROUTER_FALLBACK_1", "google/gemma-3-12b-it:free"),
     os.getenv("OPENROUTER_FALLBACK_2", "meta-llama/llama-3.2-11b-vision-instruct:free"),
 ]
+
+# Text-only LLM used to structure raw OCR text (Google Vision fallback path)
+_TEXT_LLM = os.getenv("OPENROUTER_TEXT_LLM", "google/gemma-3-12b-it:free")
 
 # Lazy semaphore (created on first use to respect event loop)
 _semaphore: Optional[asyncio.Semaphore] = None
@@ -245,9 +250,95 @@ async def extract_from_image(
                         filename, model, attempt, reason,
                     )
 
-    # All models + retries exhausted
-    logger.error("[%s] All models failed. Returning empty result.", filename)
+    # ── All vision models exhausted → Google Vision fallback ─────────────────
+    logger.warning("[%s] All OpenRouter vision models failed. Trying Google Vision API...", filename)
+    result = await _google_vision_fallback(image_path, filename)
+    if result is not None:
+        return result, "fallback", "success"
+
+    logger.error("[%s] All methods failed. Returning empty result.", filename)
     return _empty_result(), "fallback", "failed"
+
+
+# ── Google Vision fallback ────────────────────────────────────────────────
+
+_TEXT_STRUCTURING_PROMPT = """\
+You are a business card data extraction assistant.
+Below is raw OCR text extracted from an Indian business card (may contain Hindi and English).
+
+Extract the contact information and return ONLY valid JSON with this exact schema:
+{
+  "company": "",
+  "contacts": [
+    {"name": "", "phones": []}
+  ],
+  "emails": [],
+  "address": ""
+}
+
+Rules:
+- Keep Hindi text as-is (do NOT translate)
+- phones: digit-only strings
+- Extract ALL contacts, phones, and emails
+- Return ONLY the JSON — no explanation
+
+RAW OCR TEXT:
+{raw_text}
+"""
+
+
+async def _google_vision_fallback(
+    image_path: str,
+    filename: str,
+) -> Optional[Dict[str, Any]]:
+    """
+    Last-resort fallback:
+    1. Google Vision API → extract raw text
+    2. Text-only LLM on OpenRouter → structure into JSON
+    """
+    from core.google_vision_ocr import extract_text
+
+    # Step 1: Google Vision OCR
+    raw_text = await asyncio.to_thread(extract_text, image_path)
+    if not raw_text:
+        logger.warning("[%s] Google Vision returned no text", filename)
+        return None
+
+    logger.info("[%s] Google Vision OCR success (%d chars). Structuring...", filename, len(raw_text))
+
+    # Step 2: Send raw text to a text-only LLM for structuring
+    prompt = _TEXT_STRUCTURING_PROMPT.format(raw_text=raw_text)
+    payload = {
+        "model": _TEXT_LLM,
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": 0.0,
+        "max_tokens": 600,
+        "response_format": {"type": "json_object"},
+    }
+    headers = {
+        "Authorization": f"Bearer {_API_KEY}",
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://cardscan.local",
+        "X-Title": "CardScan AI",
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=_REQUEST_TIMEOUT) as client:
+            resp = await client.post(f"{_API_BASE}/chat/completions", json=payload, headers=headers)
+            resp.raise_for_status()
+            content = resp.json()["choices"][0]["message"]["content"]
+            data = json.loads(content)
+    except Exception as exc:
+        logger.warning("[%s] Text LLM structuring failed: %s", filename, exc)
+        return None
+
+    is_valid, reason = validate_result(data)
+    if is_valid:
+        logger.info("[%s] ✓ Google Vision + LLM structuring succeeded", filename)
+        return sanitize(data)
+    else:
+        logger.warning("[%s] Google Vision path validation failed: %s", filename, reason)
+        return None
 
 
 def _empty_result() -> Dict[str, Any]:
