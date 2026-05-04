@@ -299,7 +299,7 @@ async def _google_vision_fallback(
     from core.google_vision_ocr import extract_text
 
     # Step 1: Google Vision OCR
-    raw_text = await asyncio.to_thread(extract_text, image_path)
+    raw_text = await extract_text(image_path)
     if not raw_text:
         logger.warning("[%s] Google Vision returned no text", filename)
         return None
