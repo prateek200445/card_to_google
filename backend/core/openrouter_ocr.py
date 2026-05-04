@@ -266,16 +266,16 @@ async def extract_from_image(
     # ── All OpenRouter models failed ──────────────────────────────────────────
     if all_rate_limited:
         logger.warning(
-            "[%s] All OpenRouter models hit 429 rate limit. Switching to Puter fallback...",
+            "[%s] All OpenRouter models hit 429 rate limit. Switching to HuggingFace fallback...",
             filename,
         )
-        from core.puter_ocr import extract_from_image as puter_extract
-        raw = await puter_extract(image_path, filename)
+        from core.huggingface_ocr import extract_from_image as hf_extract
+        raw = await hf_extract(image_path, filename)
         if raw is not None:
             is_valid, reason = validate_result(raw)
             if is_valid:
                 return sanitize(raw), "fallback", "success"
-            logger.warning("[%s] Puter result failed validation: %s", filename, reason)
+            logger.warning("[%s] HuggingFace result failed validation: %s", filename, reason)
     else:
         logger.warning("[%s] All OpenRouter models failed (non-rate-limit errors)", filename)
 
