@@ -263,21 +263,19 @@ async def extract_from_image(
                         filename, model, attempt, reason,
                     )
 
-    # ── All OpenRouter models failed ──────────────────────────────────────────
+    # ── All OpenRouter models failed → HuggingFace fallback ─────────────────
     if all_rate_limited:
-        logger.warning(
-            "[%s] All OpenRouter models hit 429 rate limit. Switching to HuggingFace fallback...",
-            filename,
-        )
-        from core.huggingface_ocr import extract_from_image as hf_extract
-        raw = await hf_extract(image_path, filename)
-        if raw is not None:
-            is_valid, reason = validate_result(raw)
-            if is_valid:
-                return sanitize(raw), "fallback", "success"
-            logger.warning("[%s] HuggingFace result failed validation: %s", filename, reason)
+        logger.warning("[%s] All OpenRouter models hit 429 rate limit. Trying HuggingFace...", filename)
     else:
-        logger.warning("[%s] All OpenRouter models failed (non-rate-limit errors)", filename)
+        logger.warning("[%s] All OpenRouter models failed. Trying HuggingFace fallback...", filename)
+
+    from core.huggingface_ocr import extract_from_image as hf_extract
+    raw = await hf_extract(image_path, filename)
+    if raw is not None:
+        is_valid, reason = validate_result(raw)
+        if is_valid:
+            return sanitize(raw), "fallback", "success"
+        logger.warning("[%s] HuggingFace result failed validation: %s", filename, reason)
 
     logger.error("[%s] All methods failed. Returning empty result.", filename)
     return _empty_result(), "fallback", "failed"
