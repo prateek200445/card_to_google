@@ -250,11 +250,16 @@ async def extract_from_image(
                         filename, model, attempt, reason,
                     )
 
-    # ── All vision models exhausted → Google Vision fallback ─────────────────
-    logger.warning("[%s] All OpenRouter vision models failed. Trying Google Vision API...", filename)
-    result = await _google_vision_fallback(image_path, filename)
-    if result is not None:
-        return result, "fallback", "success"
+    # ── All vision models exhausted → Gemini AI Studio fallback ─────────────
+    logger.warning("[%s] All OpenRouter models failed. Trying Gemini AI Studio...", filename)
+    from core.gemini_ocr import extract_from_image as gemini_extract
+    raw = await gemini_extract(image_path, filename)
+    if raw is not None:
+        is_valid, reason = validate_result(raw)
+        if is_valid:
+            return sanitize(raw), "fallback", "success"
+        else:
+            logger.warning("[%s] Gemini result failed validation: %s", filename, reason)
 
     logger.error("[%s] All methods failed. Returning empty result.", filename)
     return _empty_result(), "fallback", "failed"
