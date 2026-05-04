@@ -30,8 +30,8 @@ _HF_TOKEN = os.getenv("HF_TOKEN", "").strip()
 _REQUEST_TIMEOUT = float(os.getenv("REQUEST_TIMEOUT", "60.0"))  # HF can be slower
 _MODEL = os.getenv("HF_MODEL", "Qwen/Qwen2.5-VL-7B-Instruct")
 
-# HuggingFace OpenAI-compatible chat endpoint
-_API_URL = f"https://api-inference.huggingface.co/models/{_MODEL}/v1/chat/completions"
+# HuggingFace router — OpenAI-compatible chat completions for serverless inference
+_API_URL = "https://router.huggingface.co/hf-inference/v1/chat/completions"
 
 _PROMPT = """\
 You are an expert OCR system for Indian business cards containing Hindi and English text.
