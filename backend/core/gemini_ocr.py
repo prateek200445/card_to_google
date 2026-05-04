@@ -99,10 +99,30 @@ async def extract_from_image(
                 params={"key": _API_KEY},
                 json=payload,
             )
-            resp.raise_for_status()
+
+        if not resp.is_success:
+            logger.warning(
+                "[%s] Gemini API HTTP %s: %s",
+                filename, resp.status_code, resp.text[:300],
+            )
+            return None
 
         data = resp.json()
-        text = data["candidates"][0]["content"]["parts"][0]["text"]
+
+        # Extract text from response
+        try:
+            text = data["candidates"][0]["content"]["parts"][0]["text"]
+        except (KeyError, IndexError) as exc:
+            logger.warning("[%s] Gemini unexpected response shape: %s | raw: %s", filename, exc, str(data)[:200])
+            return None
+
+        # Strip markdown code fences if present (e.g. ```json ... ```)
+        text = text.strip()
+        if text.startswith("```"):
+            text = text.split("```")[1]
+            if text.startswith("json"):
+                text = text[4:]
+
         result = json.loads(text)
         logger.info("[%s] ✓ Gemini AI Studio extraction succeeded (model=%s)", filename, _MODEL)
         return result
