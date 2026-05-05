@@ -31,11 +31,13 @@ _API_KEY = os.getenv("OPENROUTER_API_KEY", "")
 _REQUEST_TIMEOUT = float(os.getenv("REQUEST_TIMEOUT", "45.0"))
 _MAX_CONCURRENCY = int(os.getenv("MAX_CONCURRENCY", "6"))
 
-# Vision model priority: primary first, then fallbacks
+# Vision model priority: primary first, then fallbacks (only keep working models)
 _MODELS: List[str] = [
-    os.getenv("OPENROUTER_PRIMARY_MODEL", "baidu/qianfan-ocr-fast:free"),
-    os.getenv("OPENROUTER_FALLBACK_1", "google/gemma-3-12b-it:free"),
-    os.getenv("OPENROUTER_FALLBACK_2", "meta-llama/llama-3.2-11b-vision-instruct:free"),
+    m for m in [
+        os.getenv("OPENROUTER_PRIMARY_MODEL", "baidu/qianfan-ocr-fast:free"),
+        os.getenv("OPENROUTER_FALLBACK_1", ""),   # empty = disabled
+        os.getenv("OPENROUTER_FALLBACK_2", ""),   # empty = disabled
+    ] if m.strip()
 ]
 
 # Text-only LLM used to structure raw OCR text (Google Vision fallback path)
