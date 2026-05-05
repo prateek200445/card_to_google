@@ -24,10 +24,16 @@ from utils.logger import get_logger
 
 logger = get_logger(__name__)
 
-# ── Configuration ─────────────────────────────────────────────────────────
+# ── API Key pool — rotate on 429 ─────────────────────────────────────────
+# Supports multiple keys via OPENROUTER_API_KEYS (comma-separated)
+# Falls back to single OPENROUTER_API_KEY for backwards compatibility
+_raw_keys = os.getenv("OPENROUTER_API_KEYS", "") or os.getenv("OPENROUTER_API_KEY", "")
+_API_KEYS: List[str] = [k.strip() for k in _raw_keys.split(",") if k.strip()]
+
+if not _API_KEYS:
+    logger.warning("No OpenRouter API keys configured!")
 
 _API_BASE = "https://openrouter.ai/api/v1"
-_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
 _REQUEST_TIMEOUT = float(os.getenv("REQUEST_TIMEOUT", "45.0"))
 _MAX_CONCURRENCY = int(os.getenv("MAX_CONCURRENCY", "6"))
 
@@ -145,12 +151,11 @@ async def _call_model(
     mime: str,
     model: str,
     filename: str,
+    api_key: str,
 ) -> Tuple[Optional[Dict[str, Any]], bool]:
     """
-    Call one OpenRouter vision model.
+    Call one OpenRouter vision model with the given API key.
     Returns (parsed_dict, is_rate_limited).
-      - parsed_dict: result on success, None on error
-      - is_rate_limited: True if HTTP 429 received
     """
     payload = {
         "model": model,
@@ -172,7 +177,7 @@ async def _call_model(
     }
 
     headers = {
-        "Authorization": f"Bearer {_API_KEY}",
+        "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
         "HTTP-Referer": "https://cardscan.local",
         "X-Title": "CardScan AI",
@@ -234,36 +239,46 @@ async def extract_from_image(
                 method = "fallback"
                 logger.info("[%s] Switching to fallback model: %s", filename, model)
 
-            # Each model gets 2 attempts
-            for attempt in range(1, 3):
-                logger.info(
-                    "[%s] model=%s attempt=%d/%d", filename, model, attempt, 2
-                )
+            # Try each API key for this model — rotate on 429
+            for key_idx, api_key in enumerate(_API_KEYS):
+                if key_idx > 0:
+                    logger.info("[%s] Rotating to API key #%d for model=%s", filename, key_idx + 1, model)
 
-                raw, is_rate_limited = await _call_model(b64, mime, model, filename)
-
-                if not is_rate_limited:
-                    all_rate_limited = False  # at least one non-429 failure
-
-                if raw is None:
-                    logger.warning(
-                        "[%s] model=%s attempt=%d returned no data", filename, model, attempt
-                    )
-                    continue
-
-                all_rate_limited = False
-                is_valid, reason = validate_result(raw)
-                if is_valid:
+                for attempt in range(1, 3):
                     logger.info(
-                        "[%s] ✓ Valid result from model=%s attempt=%d method=%s",
-                        filename, model, attempt, method,
+                        "[%s] model=%s key=#%d attempt=%d/2", filename, model, key_idx + 1, attempt
                     )
-                    return sanitize(raw), method, "success"
+
+                    raw, is_rate_limited = await _call_model(b64, mime, model, filename, api_key)
+
+                    if is_rate_limited:
+                        logger.warning("[%s] Key #%d hit 429 on model=%s", filename, key_idx + 1, model)
+                        break  # break attempt loop → try next key
+
+                    all_rate_limited = False  # at least one non-429 response
+
+                    if raw is None:
+                        logger.warning(
+                            "[%s] model=%s key=#%d attempt=%d returned no data",
+                            filename, model, key_idx + 1, attempt,
+                        )
+                        continue
+
+                    is_valid, reason = validate_result(raw)
+                    if is_valid:
+                        logger.info(
+                            "[%s] ✓ Valid result model=%s key=#%d attempt=%d method=%s",
+                            filename, model, key_idx + 1, attempt, method,
+                        )
+                        return sanitize(raw), method, "success"
+                    else:
+                        logger.warning(
+                            "[%s] ✗ Validation failed model=%s key=#%d attempt=%d reason=%s",
+                            filename, model, key_idx + 1, attempt, reason,
+                        )
                 else:
-                    logger.warning(
-                        "[%s] ✗ Validation failed model=%s attempt=%d reason=%s",
-                        filename, model, attempt, reason,
-                    )
+                    # attempt loop completed without 429 or success → done with this key
+                    break
 
     # ── All OpenRouter models failed → HuggingFace fallback ─────────────────
     if all_rate_limited:
