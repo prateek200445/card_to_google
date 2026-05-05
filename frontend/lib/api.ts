@@ -4,6 +4,15 @@
 
 const BASE = process.env.NEXT_PUBLIC_API_URL || "/api";
 
+// ── Warm-up ───────────────────────────────────────────────────────────────
+// Call this on page load to wake the backend (cold-start on free-tier hosts).
+// Completely silent — never throws, never blocks the UI.
+export function warmupBackend(): void {
+  fetch(`${BASE}/health`, { method: "GET" }).catch(() => {
+    // intentionally ignored — warm-up is best-effort
+  });
+}
+
 export interface CardResult {
   image: string;
   name: string;

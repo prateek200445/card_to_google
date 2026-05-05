@@ -9,7 +9,7 @@ import ResultCard from "@/components/ResultCard";
 import ExportPanel from "@/components/ExportPanel";
 import { useUpload } from "@/hooks/useUpload";
 import { useJobPolling } from "@/hooks/useJobPolling";
-import { CardResult, getResults } from "@/lib/api";
+import { CardResult, getResults, warmupBackend } from "@/lib/api";
 
 type Stage = "upload" | "processing" | "results";
 
@@ -20,6 +20,9 @@ export default function HomePage() {
 
   const { upload, uploadPct, isUploading, error: uploadError } = useUpload();
   const { status, isDone } = useJobPolling(jobId);
+
+  // Wake up the backend immediately on page load (avoids cold-start delay on upload)
+  React.useEffect(() => { warmupBackend(); }, []);
 
   // When processing finishes, fetch final results
   const prevDone = React.useRef(false);
