@@ -16,7 +16,7 @@ _CREDS_PATH = os.getenv("GOOGLE_CREDENTIALS_PATH", "credentials.json")
 _DEFAULT_SHEET_ID = os.getenv("GOOGLE_SHEET_ID", "")
 _SHEET_TAB = os.getenv("GOOGLE_SHEET_TAB", "Sheet1")
 
-_HEADERS = ["Image", "Name", "Company", "Emails", "Phones", "Address", "Confidence", "Method", "Remarks", "Purpose"]
+_HEADERS = ["Image", "Name", "Company", "Emails", "Phones", "Address", "Remarks"]
 
 
 def _get_service():
@@ -64,7 +64,7 @@ def _sync_append(results, sheet_id: str, batch_remarks: str = "", batch_purpose:
     # Check if header row exists — read first row
     existing = service.spreadsheets().values().get(
         spreadsheetId=spreadsheet_id,
-        range=f"{_SHEET_TAB}!A1:J1",
+        range=f"{_SHEET_TAB}!A1:G1",
     ).execute()
 
     rows_present = existing.get("values", [])
@@ -81,10 +81,7 @@ def _sync_append(results, sheet_id: str, batch_remarks: str = "", batch_purpose:
             "; ".join(r.emails),
             "; ".join(r.phones),
             r.address,
-            f"{r.confidence:.0%}",
-            r.method.value,
             r.remarks if r.remarks is not None else batch_remarks,
-            r.purpose if r.purpose is not None else batch_purpose,
         ])
 
     body = {"values": values_to_write}
