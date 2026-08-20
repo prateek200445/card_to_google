@@ -35,7 +35,7 @@ function vcEscape(s: string): string {
  * - Normalised phone numbers that were already seen in a previous card are skipped.
  * - Cards with errors are skipped entirely.
  */
-function generateVcf(results: CardResult[]): { vcf: string; contactCount: number; skippedPhones: number } {
+function generateVcf(results: CardResult[], remarks: string): { vcf: string; contactCount: number; skippedPhones: number } {
   const seenPhones = new Set<string>();
   const vcards: string[] = [];
   let skippedPhones = 0;
@@ -64,7 +64,7 @@ function generateVcf(results: CardResult[]): { vcf: string; contactCount: number
       `FN:${vcEscape(displayName)}`,
     ];
 
-    // Structured name: Last;First;Middle;Prefix;Suffix
+    // N: Last;First;Middle;Prefix;Suffix
     if (r.name) {
       const parts = r.name.trim().split(/\s+/);
       const last  = parts.length > 1 ? parts[parts.length - 1] : "";
@@ -72,17 +72,25 @@ function generateVcf(results: CardResult[]): { vcf: string; contactCount: number
       lines.push(`N:${vcEscape(last)};${vcEscape(first)};;;`);
     }
 
+    // Company
     if (r.company) lines.push(`ORG:${vcEscape(r.company)}`);
 
-    uniquePhones.forEach((p) =>
-      lines.push(`TEL;TYPE=WORK,VOICE:${p}`)
-    );
-
+    // Emails
     r.emails.forEach((e) =>
       lines.push(`EMAIL;TYPE=WORK,INTERNET:${vcEscape(e)}`)
     );
 
+    // Phones (deduplicated)
+    uniquePhones.forEach((p) =>
+      lines.push(`TEL;TYPE=WORK,VOICE:${p}`)
+    );
+
+    // Address
     if (r.address) lines.push(`ADR;TYPE=WORK:;;${vcEscape(r.address)};;;;`);
+
+    // Remarks → NOTE
+    const note = remarks.trim();
+    if (note) lines.push(`NOTE:${vcEscape(note)}`);
 
     lines.push("END:VCARD");
     vcards.push(lines.join("\r\n"));
@@ -131,7 +139,7 @@ export default function ExportPanel({ jobId, results }: Props) {
       toast.error("No valid contacts to export.");
       return;
     }
-    const { vcf, contactCount, skippedPhones } = generateVcf(valid);
+    const { vcf, contactCount, skippedPhones } = generateVcf(valid, remarks);
     const blob = new Blob([vcf], { type: "text/vcard;charset=utf-8" });
     const url  = URL.createObjectURL(blob);
     const a    = document.createElement("a");
