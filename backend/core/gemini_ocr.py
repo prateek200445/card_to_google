@@ -49,17 +49,20 @@ Extract and return ONLY valid JSON with this exact schema:
 {
   "company": "",
   "contacts": [
-    {"name": "", "phones": []}
+    {"name": "", "job_title": "", "phones": []}
   ],
   "emails": [],
-  "address": ""
+  "address": "",
+  "city": ""
 }
 
 Rules:
 🏢 company    — large central text, shop/business name (keep Hindi as-is)
 👤 contacts   — extract EVERY person as a SEPARATE entry with their own phones
+💼 job_title  — role, designation or title of the person (e.g. "GM Finance", "Director")
 📱 phones     — digit-only strings, strip +/spaces/dashes
 📍 address    — full postal address in one string, keep Hindi as-is
+🌆 city       — extract the city or region name if specified (e.g. "Ahmedabad", "Gujarat")
 📧 emails     — all emails in lowercase
 ✗ Do NOT translate Hindi to English
 ✗ Do NOT merge multiple contacts

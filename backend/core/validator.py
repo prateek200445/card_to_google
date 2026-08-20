@@ -72,6 +72,7 @@ def sanitize(data: Dict[str, Any]) -> Dict[str, Any]:
     """
     data["company"] = str(data.get("company") or "").strip()
     data["address"] = str(data.get("address") or "").strip()
+    data["city"] = str(data.get("city") or "").strip()
 
     # Emails
     raw_emails = data.get("emails") or []
@@ -82,12 +83,14 @@ def sanitize(data: Dict[str, Any]) -> Dict[str, Any]:
         for c in (data["contacts"] or []):
             cleaned_contacts.append({
                 "name": str(c.get("name") or "").strip(),
+                "job_title": str(c.get("job_title") or "").strip(),
                 "phones": _clean_phones(c.get("phones") or []),
             })
         data["contacts"] = cleaned_contacts
     else:
         # Legacy
         data["name"] = str(data.get("name") or "").strip()
+        data["job_title"] = str(data.get("job_title") or "").strip()
         data["phones"] = _clean_phones(data.get("phones") or [])
 
     return data

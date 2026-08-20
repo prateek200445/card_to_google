@@ -338,16 +338,18 @@ Extract the contact information and return ONLY valid JSON with this exact schem
 {
   "company": "",
   "contacts": [
-    {"name": "", "phones": []}
+    {"name": "", "job_title": "", "phones": []}
   ],
   "emails": [],
-  "address": ""
+  "address": "",
+  "city": ""
 }
 
 Rules:
 - Keep Hindi text as-is (do NOT translate)
 - phones: digit-only strings
 - Extract ALL contacts, phones, and emails
+- Extract "city" (e.g. Ahmedabad) and "job_title" (e.g. GM Finance) if present
 - Return ONLY the JSON — no explanation
 
 RAW OCR TEXT:
@@ -410,4 +412,12 @@ async def _google_vision_fallback(
 
 
 def _empty_result() -> Dict[str, Any]:
-    return {"name": "", "company": "", "emails": [], "phones": [], "address": ""}
+    return {
+        "name": "",
+        "company": "",
+        "emails": [],
+        "phones": [],
+        "address": "",
+        "city": "",
+        "job_title": "",
+    }

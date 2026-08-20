@@ -49,6 +49,8 @@ export interface CardResult {
   emails: string[];
   phones: string[];
   address: string;
+  city?: string;
+  job_title?: string;
   confidence: number;
   method: "rule-based" | "llm" | "hybrid";
   raw_text?: string;
@@ -193,6 +195,8 @@ export interface SheetContact {
   phones:  string;   // semi-colon separated string
   address: string;
   remarks: string;
+  city?:   string;
+  job_title?: string;
 }
 
 export async function getSheetContacts(): Promise<SheetContact[]> {

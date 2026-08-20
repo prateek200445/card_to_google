@@ -43,6 +43,8 @@ class CardResult(BaseModel):
     emails: List[str] = []
     phones: List[str] = []
     address: str = ""
+    city: str = ""
+    job_title: str = ""
     confidence: float = Field(0.0, ge=0.0, le=1.0)
     method: ExtractionMethod = ExtractionMethod.RULE_BASED
     status: str = "success"     # "success" | "failed"

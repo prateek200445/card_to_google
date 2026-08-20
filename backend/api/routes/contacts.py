@@ -27,6 +27,8 @@ class SheetContact(BaseModel):
     phones:  str = ""
     address: str = ""
     remarks: str = ""
+    city:    str = ""
+    job_title: str = ""
 
 
 def _sync_read(sheet_id: str) -> List[SheetContact]:
@@ -55,7 +57,7 @@ def _sync_read(sheet_id: str) -> List[SheetContact]:
 
     result = service.spreadsheets().values().get(
         spreadsheetId=sid,
-        range=f"{_SHEET_TAB}!A:G",
+        range=f"{_SHEET_TAB}!A:I",
     ).execute()
 
     rows = result.get("values", [])
@@ -66,11 +68,12 @@ def _sync_read(sheet_id: str) -> List[SheetContact]:
     data_rows = rows[1:]
     contacts: List[SheetContact] = []
     for row in data_rows:
-        # Pad row to 7 columns
-        r = row + [""] * (7 - len(row))
+        # Pad row to 9 columns (A to I)
+        r = row + [""] * (9 - len(row))
         contacts.append(SheetContact(
             image=r[0], name=r[1], company=r[2],
             emails=r[3], phones=r[4], address=r[5], remarks=r[6],
+            city=r[7], job_title=r[8]
         ))
     return contacts
 

@@ -13,7 +13,7 @@ from openpyxl.utils import get_column_letter
 from models.schemas import CardResult
 
 
-_HEADERS = ["Image", "Name", "Company", "Emails", "Phones", "Address", "Remarks"]
+_HEADERS = ["Image", "Name", "Company", "Emails", "Phones", "Address", "Remarks", "City", "Job Title"]
 _HEADER_COLOR = "1E293B"   # Dark slate
 
 
@@ -41,6 +41,8 @@ def generate_excel(results: List[CardResult]) -> bytes:
             "; ".join(r.phones),
             r.address,
             r.remarks or "",
+            r.city,
+            r.job_title,
         ]
         for col_idx, value in enumerate(row_data, start=1):
             cell = ws.cell(row=row_idx, column=col_idx, value=value)
@@ -51,7 +53,7 @@ def generate_excel(results: List[CardResult]) -> bytes:
                 ws.cell(row=row_idx, column=col_idx).fill = PatternFill("solid", fgColor="F1F5F9")
 
     # ── Auto column widths ────────────────────────────────────────────
-    col_widths = [22, 22, 28, 35, 25, 45, 35]
+    col_widths = [22, 22, 28, 35, 25, 45, 35, 20, 25]
     for col_idx, width in enumerate(col_widths, start=1):
         ws.column_dimensions[get_column_letter(col_idx)].width = width
 

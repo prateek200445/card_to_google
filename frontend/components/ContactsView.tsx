@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { SheetContact, getSheetContacts } from "@/lib/api";
 import {
-  Search, User, Building2, Phone, Mail, MapPin,
+  Search, User, Building2, Phone, Mail, MapPin, Briefcase,
   MessageSquare, Loader2, AlertCircle, RefreshCw,
   ChevronUp, ChevronDown, Contact, CheckSquare, Square,
 } from "lucide-react";
@@ -59,6 +59,7 @@ function buildVcf(contacts: SheetContact[]): string {
     }
 
     if (c.company) lines.push(`ORG:${vcEscape(c.company)}`);
+    if (c.job_title) lines.push(`TITLE:${vcEscape(c.job_title)}`);
 
     emails.forEach((e) =>
       lines.push(`EMAIL;TYPE=WORK,INTERNET:${vcEscape(e)}`)
@@ -68,7 +69,9 @@ function buildVcf(contacts: SheetContact[]): string {
       lines.push(`TEL;TYPE=WORK,VOICE:${p}`)
     );
 
-    if (c.address) lines.push(`ADR;TYPE=WORK:;;${vcEscape(c.address)};;;;`);
+    if (c.address || c.city) {
+      lines.push(`ADR;TYPE=WORK:;;${vcEscape(c.address || "")};${vcEscape(c.city || "")};;;`);
+    }
 
     const note = c.remarks ? c.remarks.trim() : "";
     if (note) lines.push(`NOTE:${vcEscape(note)}`);
@@ -337,6 +340,11 @@ export default function ContactsView({ onBack }: Props) {
                     <p className="font-bold text-on-surface text-sm truncate font-body">
                       {c.name || <span className="text-on-surface-variant/30 italic font-semibold">No name</span>}
                     </p>
+                    {c.job_title && (
+                      <p className="text-xs text-secondary font-bold truncate flex items-center gap-1 mt-0.5 font-body">
+                        <Briefcase className="w-3 h-3 shrink-0" /> {c.job_title}
+                      </p>
+                    )}
                     {c.company && (
                       <p className="text-xs text-on-surface-variant/70 truncate flex items-center gap-1 mt-0.5 font-body">
                         <Building2 className="w-3 h-3 shrink-0" /> {c.company}
@@ -379,6 +387,12 @@ export default function ContactsView({ onBack }: Props) {
                       <div className="flex items-start gap-2 text-xs text-on-surface-variant/90 font-body font-medium">
                         <MapPin className="w-3 h-3 text-amber-600 shrink-0 mt-0.5" />
                         <span>{c.address}</span>
+                      </div>
+                    )}
+                    {c.city && (
+                      <div className="flex items-center gap-2 text-xs text-on-surface-variant/90 font-body font-medium">
+                        <MapPin className="w-3 h-3 text-amber-600 shrink-0" />
+                        <span><strong className="text-on-surface-variant/65">City:</strong> {c.city}</span>
                       </div>
                     )}
                     {c.remarks && (

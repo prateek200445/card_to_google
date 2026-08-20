@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { CardResult } from "@/lib/api";
-import { User, Building2, Mail, Phone, MapPin, ChevronDown, ChevronUp, Sparkles, ShieldCheck, Edit3, Check, X } from "lucide-react";
+import { User, Building2, Briefcase, Mail, Phone, MapPin, ChevronDown, ChevronUp, Sparkles, ShieldCheck, Edit3, Check, X } from "lucide-react";
 
 interface Props {
   result: CardResult;
@@ -10,7 +10,7 @@ interface Props {
   onChange: (updated: CardResult) => void;
 }
 
-type EF = "name" | "company" | "address";
+type EF = "name" | "company" | "address" | "city" | "job_title";
 
 export default function ResultCard({ result, index, onChange }: Props) {
   const [showRaw, setShowRaw] = useState(false);
@@ -54,6 +54,7 @@ export default function ResultCard({ result, index, onChange }: Props) {
       ) : (
         <div className="px-5 py-5 space-y-4">
           <InlineField icon={<User className="w-4 h-4" />} label="Name" value={result.name} field="name" editing={editing} draft={draft} onStart={startEdit} onChange={setDraft} onCommit={commit} onCancel={cancel} />
+          <InlineField icon={<Briefcase className="w-4 h-4" />} label="Job Title" value={result.job_title || ""} field="job_title" editing={editing} draft={draft} onStart={startEdit} onChange={setDraft} onCommit={commit} onCancel={cancel} />
           <InlineField icon={<Building2 className="w-4 h-4" />} label="Company" value={result.company} field="company" editing={editing} draft={draft} onStart={startEdit} onChange={setDraft} onCommit={commit} onCancel={cancel} />
 
           <div className="flex gap-3 items-start">
@@ -81,6 +82,7 @@ export default function ResultCard({ result, index, onChange }: Props) {
           </div>
 
           <InlineField icon={<MapPin className="w-4 h-4" />} label="Address" value={result.address} field="address" editing={editing} draft={draft} onStart={startEdit} onChange={setDraft} onCommit={commit} onCancel={cancel} multiline />
+          <InlineField icon={<MapPin className="w-4 h-4" />} label="City" value={result.city || ""} field="city" editing={editing} draft={draft} onStart={startEdit} onChange={setDraft} onCommit={commit} onCancel={cancel} />
 
           {result.raw_text && (
             <div className="pt-1">

@@ -27,6 +27,8 @@ def normalize(
     """
     emails = [e.lower().strip() for e in (data.get("emails") or []) if e]
 
+    city = str(data.get("city") or "").strip()
+
     if "contacts" in data:
         # ── New multi-contact schema ──────────────────────────────────
         contacts: List[Dict] = data.get("contacts") or []
@@ -34,6 +36,10 @@ def normalize(
         # Flatten names
         names = [str(c.get("name") or "").strip() for c in contacts]
         name = " | ".join(n for n in names if n)
+
+        # Flatten job titles
+        job_titles = [str(c.get("job_title") or "").strip() for c in contacts]
+        job_title = " | ".join(j for j in job_titles if j) or str(data.get("job_title") or "").strip()
 
         # Flatten + deduplicate phones (preserve per-contact order)
         seen: set[str] = set()
@@ -50,6 +56,7 @@ def normalize(
         # ── Legacy schema ─────────────────────────────────────────────
         name = str(data.get("name") or "").strip()
         phones = [_fmt_phone(p) for p in (data.get("phones") or [])]
+        job_title = str(data.get("job_title") or "").strip()
 
     extraction_method = (
         ExtractionMethod.RULE_BASED if method == "primary" else ExtractionMethod.LLM
@@ -63,6 +70,8 @@ def normalize(
         emails=emails,
         phones=phones,
         address=str(data.get("address") or "").strip(),
+        city=city,
+        job_title=job_title,
         confidence=confidence,
         method=extraction_method,
         status=status,
