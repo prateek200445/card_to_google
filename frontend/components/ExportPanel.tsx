@@ -28,7 +28,7 @@ export default function ExportPanel({ jobId, results }: Props) {
   const handleExcel = async () => {
     setExcelLoading(true);
     try {
-      await exportToExcel(jobId, results, remarks || undefined, purpose || undefined);
+      await exportToExcel(jobId, results, remarks || undefined);
       toast.success("Excel file downloaded!");
     } catch (e: any) {
       toast.error(e.message || "Excel export failed");
