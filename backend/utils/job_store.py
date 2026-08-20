@@ -26,6 +26,18 @@ class JobStore:
         job_id = str(uuid.uuid4())
         images = [ImageStatus(filename=f) for f in filenames]
         async with self._lock:
+            # Prune oldest job to prevent memory and disk leaks
+            if len(self._jobs) >= 50:
+                oldest_id = next(iter(self._jobs))
+                self._jobs.pop(oldest_id, None)
+                
+                # Delete old upload files in a non-blocking thread pool
+                import shutil
+                from pathlib import Path
+                import os
+                upload_dir = Path(os.getenv("UPLOAD_DIR", "uploads"))
+                shutil.rmtree(upload_dir / oldest_id, ignore_errors=True)
+
             self._jobs[job_id] = JobStatus(
                 job_id=job_id,
                 total=len(filenames),

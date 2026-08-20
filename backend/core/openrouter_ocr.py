@@ -136,13 +136,10 @@ Schema:
 # ── Image encoding ────────────────────────────────────────────────────────
 
 def _encode_image(path: str | Path) -> Tuple[str, str]:
-    """Read image file and return (base64_string, mime_type)."""
-    p = Path(path)
-    mime_map = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png"}
-    mime = mime_map.get(p.suffix.lower(), "image/jpeg")
-    with open(p, "rb") as f:
-        b64 = base64.b64encode(f.read()).decode("utf-8")
-    return b64, mime
+    """Read, downscale/compress image, and return (base64_string, mime_type)."""
+    from utils.image import encode_and_compress_image
+    return encode_and_compress_image(path)
+
 
 
 # ── Single model call ─────────────────────────────────────────────────────

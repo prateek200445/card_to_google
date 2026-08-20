@@ -161,11 +161,8 @@ async def extract_from_image(
         return None
 
     # Encode image
-    p = Path(image_path)
-    mime_map = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png"}
-    mime = mime_map.get(p.suffix.lower(), "image/jpeg")
-    with open(p, "rb") as f:
-        b64 = base64.b64encode(f.read()).decode("utf-8")
+    from utils.image import encode_and_compress_image
+    b64, mime = encode_and_compress_image(image_path)
 
     for model in _MODELS:
         logger.info("[%s] Trying Google AI Studio model=%s", filename, model)
