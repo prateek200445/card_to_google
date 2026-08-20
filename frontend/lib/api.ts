@@ -153,3 +153,25 @@ export async function exportToSheets(
   const data = await res.json();
   return data.url;
 }
+
+// ── Sheet Contacts ────────────────────────────────────────────────────────
+
+export interface SheetContact {
+  image:   string;
+  name:    string;
+  company: string;
+  emails:  string;   // semi-colon separated string (as stored in sheet)
+  phones:  string;   // semi-colon separated string
+  address: string;
+  remarks: string;
+}
+
+export async function getSheetContacts(): Promise<SheetContact[]> {
+  const res = await fetch(`${BASE}/contacts`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err?.detail || "Failed to fetch contacts");
+  }
+  return res.json();
+}
+

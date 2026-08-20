@@ -1,17 +1,18 @@
 "use client";
 
 import React, { useState, useCallback } from "react";
-import { Scan, ChevronRight, RotateCcw } from "lucide-react";
+import { Scan, ChevronRight, RotateCcw, BookUser } from "lucide-react";
 
 import UploadZone from "@/components/UploadZone";
 import BatchProgress from "@/components/BatchProgress";
 import ResultCard from "@/components/ResultCard";
 import ExportPanel from "@/components/ExportPanel";
+import ContactsView from "@/components/ContactsView";
 import { useUpload } from "@/hooks/useUpload";
 import { useJobPolling } from "@/hooks/useJobPolling";
 import { CardResult, getResults, warmupBackend } from "@/lib/api";
 
-type Stage = "upload" | "processing" | "results";
+type Stage = "upload" | "processing" | "results" | "contacts";
 
 export default function HomePage() {
   const [stage, setStage] = useState<Stage>("upload");
@@ -75,7 +76,7 @@ export default function HomePage() {
           </div>
 
           <div className="flex items-center gap-3">
-            {stage !== "upload" && (
+            {stage !== "upload" && stage !== "contacts" && (
               <button
                 onClick={reset}
                 className="flex items-center gap-1.5 text-sm text-white/50 hover:text-white/80 transition-colors"
@@ -83,6 +84,20 @@ export default function HomePage() {
                 <RotateCcw className="w-3.5 h-3.5" /> New Batch
               </button>
             )}
+
+            {/* All Contacts button */}
+            <button
+              onClick={() => setStage(stage === "contacts" ? "upload" : "contacts")}
+              className={`flex items-center gap-1.5 text-sm font-medium transition-colors ${
+                stage === "contacts"
+                  ? "text-violet-400"
+                  : "text-white/50 hover:text-white/80"
+              }`}
+            >
+              <BookUser className="w-3.5 h-3.5" />
+              All Contacts
+            </button>
+
             {/* Stage breadcrumb */}
             <div className="hidden sm:flex items-center gap-1.5 text-xs text-white/30">
               <span className={stage === "upload" ? "text-violet-400 font-semibold" : ""}>Upload</span>
@@ -202,6 +217,11 @@ export default function HomePage() {
             </div>
 
           </div>
+        )}
+
+        {/* ── Contacts Stage ────────────────────────────────────── */}
+        {stage === "contacts" && (
+          <ContactsView onBack={() => setStage("upload")} />
         )}
       </div>
 

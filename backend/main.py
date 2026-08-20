@@ -13,7 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 load_dotenv()
 
-from api.routes import export, process, results, upload  # noqa: E402 — after dotenv
+from api.routes import contacts, export, process, results, upload  # noqa: E402 — after dotenv
 
 UPLOAD_DIR = Path(os.getenv("UPLOAD_DIR", "uploads"))
 
@@ -48,10 +48,11 @@ app.add_middleware(
 )
 
 # ── Routers ───────────────────────────────────────────────────────────────
-app.include_router(upload.router, tags=["Upload"])
-app.include_router(process.router, tags=["Processing"])
-app.include_router(results.router, tags=["Results"])
-app.include_router(export.router, tags=["Export"])
+app.include_router(upload.router,   tags=["Upload"])
+app.include_router(process.router,  tags=["Processing"])
+app.include_router(results.router,  tags=["Results"])
+app.include_router(export.router,   tags=["Export"])
+app.include_router(contacts.router, tags=["Contacts"])
 
 
 @app.get("/", tags=["Health"])
