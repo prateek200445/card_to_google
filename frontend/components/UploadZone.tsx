@@ -67,7 +67,7 @@ export default function UploadZone({ onFiles, isUploading, uploadPct, disabled }
   return (
     <div className="w-full space-y-5">
       {/* ── Mode buttons ─────────────────────────────────────────────── */}
-      <div className="flex gap-2">
+      <div className="flex flex-col sm:flex-row gap-2">
         {/* Upload tab — triggers dropzone via its own click */}
         <div
           {...getRootProps()}
