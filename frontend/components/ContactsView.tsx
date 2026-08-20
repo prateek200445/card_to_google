@@ -165,20 +165,20 @@ export default function ContactsView({ onBack }: Props) {
   const allSelected = filtered.length > 0 && selected.size === filtered.length;
 
   return (
-    <div className="space-y-6">
+    <div className={`space-y-5 ${selected.size > 0 ? "pb-24" : ""}`}>
+
       {/* ── Header ────────────────────────────────────────────────── */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
+      <div className="flex items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-white">All Contacts</h2>
           <p className="text-white/50 text-sm mt-0.5">
-            Saved in Google Sheet ·{" "}
-            {loading ? "loading…" : `${contacts.length} total`}
+            {loading ? "Loading…" : `${contacts.length} saved in Google Sheet`}
           </p>
         </div>
         <button
           onClick={load}
           disabled={loading}
-          className="flex items-center gap-1.5 text-sm text-white/50 hover:text-white/80 transition-colors disabled:opacity-30"
+          className="flex items-center gap-1.5 text-sm text-white/50 hover:text-white/80 transition-colors disabled:opacity-30 shrink-0"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
           Refresh
@@ -192,16 +192,15 @@ export default function ContactsView({ onBack }: Props) {
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search by name, company, phone, email…"
+          placeholder="Search name, company, phone, email…"
           className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-11 pr-4
             text-sm text-white placeholder:text-white/25 outline-none
             focus:border-violet-500/50 focus:bg-violet-500/5 transition-all duration-200"
         />
       </div>
 
-      {/* ── Sort + Select row ─────────────────────────────────────── */}
-      <div className="flex flex-wrap items-center gap-2">
-        {/* Sort pills */}
+      {/* ── Sort row ──────────────────────────────────────────────── */}
+      <div className="flex items-center gap-2">
         {(["latest", "name", "company"] as SortKey[]).map((k) => (
           <button
             key={k}
@@ -215,45 +214,36 @@ export default function ContactsView({ onBack }: Props) {
             {k} <SortIcon k={k} />
           </button>
         ))}
-
-        <span className="text-white/30 text-xs self-center ml-1">
+        <span className="ml-auto text-white/30 text-xs shrink-0">
           {filtered.length} result{filtered.length !== 1 ? "s" : ""}
         </span>
-
-        {/* Select all + download — appear only when list is non-empty */}
-        {filtered.length > 0 && (
-          <div className="ml-auto flex items-center gap-2">
-            <button
-              onClick={selectAll}
-              className="flex items-center gap-1.5 text-xs text-white/50 hover:text-white/80 transition-colors"
-            >
-              {allSelected
-                ? <CheckSquare className="w-4 h-4 text-violet-400" />
-                : <Square className="w-4 h-4" />}
-              {allSelected ? "Deselect all" : "Select all"}
-            </button>
-
-            {selected.size > 0 && (
-              <button
-                onClick={downloadSelected}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold
-                  bg-gradient-to-r from-fuchsia-600 to-violet-600
-                  hover:from-fuchsia-500 hover:to-violet-500
-                  text-white transition-all active:scale-95 shadow-lg shadow-fuchsia-500/20"
-              >
-                <Contact className="w-3.5 h-3.5" />
-                Download {selected.size} contact{selected.size > 1 ? "s" : ""} (.vcf)
-              </button>
-            )}
-          </div>
-        )}
       </div>
+
+      {/* ── Select-all row (only when list has items) ──────────────── */}
+      {!loading && !error && filtered.length > 0 && (
+        <div className="flex items-center justify-between">
+          <button
+            onClick={selectAll}
+            className="flex items-center gap-2 text-xs text-white/50 hover:text-white/80 transition-colors"
+          >
+            {allSelected
+              ? <CheckSquare className="w-4 h-4 text-violet-400" />
+              : <Square className="w-4 h-4" />}
+            {allSelected ? "Deselect all" : "Select all"}
+          </button>
+          {selected.size > 0 && (
+            <span className="text-xs text-fuchsia-400 font-medium">
+              {selected.size} selected
+            </span>
+          )}
+        </div>
+      )}
 
       {/* ── States ────────────────────────────────────────────────── */}
       {loading && (
         <div className="flex flex-col items-center justify-center py-24 gap-3 text-white/40">
           <Loader2 className="w-8 h-8 animate-spin text-violet-400" />
-          <p className="text-sm">Loading contacts from Google Sheet…</p>
+          <p className="text-sm">Loading contacts…</p>
         </div>
       )}
 
@@ -280,10 +270,10 @@ export default function ContactsView({ onBack }: Props) {
       {!loading && !error && filtered.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {filtered.map(({ c }, i) => {
-            const isOpen     = expanded === i;
-            const isSel      = selected.has(i);
-            const phones     = c.phones.split(";").map((p) => p.trim()).filter(Boolean);
-            const emails     = c.emails.split(";").map((e) => e.trim()).filter(Boolean);
+            const isOpen = expanded === i;
+            const isSel  = selected.has(i);
+            const phones = c.phones.split(";").map((p) => p.trim()).filter(Boolean);
+            const emails = c.emails.split(";").map((e) => e.trim()).filter(Boolean);
 
             return (
               <div
@@ -300,7 +290,7 @@ export default function ContactsView({ onBack }: Props) {
                 {/* Select checkbox */}
                 <button
                   onClick={(e) => toggleSelect(i, e)}
-                  className="absolute top-4 right-4 text-white/30 hover:text-fuchsia-400 transition-colors z-10"
+                  className="absolute top-4 right-4 text-white/30 hover:text-fuchsia-400 transition-colors z-10 p-1"
                   title={isSel ? "Deselect" : "Select"}
                 >
                   {isSel
@@ -309,7 +299,7 @@ export default function ContactsView({ onBack }: Props) {
                 </button>
 
                 {/* Name & Company */}
-                <div className="flex items-start gap-3 mb-3 pr-6">
+                <div className="flex items-start gap-3 mb-3 pr-8">
                   <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500/30 to-fuchsia-500/30 border border-violet-500/20 flex items-center justify-center shrink-0">
                     <User className="w-5 h-5 text-violet-300" />
                   </div>
@@ -331,7 +321,7 @@ export default function ContactsView({ onBack }: Props) {
                     <Phone className="w-3 h-3 text-emerald-400 shrink-0" />
                     <span className="truncate">{phones[0]}</span>
                     {phones.length > 1 && (
-                      <span className="text-white/30">+{phones.length - 1}</span>
+                      <span className="text-white/30 shrink-0">+{phones.length - 1}</span>
                     )}
                   </div>
                 )}
@@ -378,6 +368,37 @@ export default function ContactsView({ onBack }: Props) {
           })}
         </div>
       )}
+
+      {/* ── Sticky bottom action bar (appears when items selected) ── */}
+      {selected.size > 0 && (
+        <div className="fixed bottom-0 inset-x-0 z-50 p-4 bg-black/80 backdrop-blur-xl border-t border-white/10">
+          <div className="max-w-lg mx-auto flex items-center gap-3">
+            <div className="flex-1">
+              <p className="text-white font-semibold text-sm">
+                {selected.size} contact{selected.size > 1 ? "s" : ""} selected
+              </p>
+              <p className="text-white/40 text-xs">Tap Download to save as .vcf</p>
+            </div>
+            <button
+              onClick={() => setSelected(new Set())}
+              className="text-xs text-white/40 hover:text-white/70 transition-colors px-2 py-1"
+            >
+              Clear
+            </button>
+            <button
+              onClick={downloadSelected}
+              className="flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-semibold
+                bg-gradient-to-r from-fuchsia-600 to-violet-600
+                hover:from-fuchsia-500 hover:to-violet-500
+                text-white transition-all active:scale-95 shadow-lg shadow-fuchsia-500/30"
+            >
+              <Contact className="w-4 h-4" />
+              Download (.vcf)
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
