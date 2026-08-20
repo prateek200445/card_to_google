@@ -16,11 +16,12 @@ interface Props {
 type SortKey = "latest" | "name" | "company";
 type SortDir = "asc" | "desc";
 
-// ── vCard helpers (same logic as ExportPanel) ───────────────────────────────
+// ── vCard builder ────────────────────────────────────────────────────────────
 
 function normalizePhone(phone: string): string {
   return phone.replace(/\D/g, "");
 }
+
 function vcEscape(s: string): string {
   return s.replace(/\\/g, "\\\\").replace(/,/g, "\\,").replace(/\n/g, "\\n").replace(/;/g, "\\;");
 }
@@ -36,13 +37,19 @@ function buildVcf(contacts: SheetContact[]): string {
     const uniquePhones: string[] = [];
     for (const p of phones) {
       const norm = normalizePhone(p);
-      if (!norm || seenPhones.has(norm)) continue;
-      seenPhones.add(norm);
-      uniquePhones.push(p);
+      if (!norm) continue;
+      if (!seenPhones.has(norm)) {
+        seenPhones.add(norm);
+        uniquePhones.push(p);
+      }
     }
 
     const displayName = c.name || c.company || "Unknown Contact";
-    const lines: string[] = ["BEGIN:VCARD", "VERSION:3.0", `FN:${vcEscape(displayName)}`];
+    const lines: string[] = [
+      "BEGIN:VCARD",
+      "VERSION:3.0",
+      `FN:${vcEscape(displayName)}`,
+    ];
 
     if (c.name) {
       const parts = c.name.trim().split(/\s+/);
@@ -50,36 +57,50 @@ function buildVcf(contacts: SheetContact[]): string {
       const first = parts.length > 1 ? parts.slice(0, -1).join(" ") : parts[0];
       lines.push(`N:${vcEscape(last)};${vcEscape(first)};;;`);
     }
+
     if (c.company) lines.push(`ORG:${vcEscape(c.company)}`);
-    emails.forEach((e) => lines.push(`EMAIL;TYPE=WORK,INTERNET:${vcEscape(e)}`));
-    uniquePhones.forEach((p) => lines.push(`TEL;TYPE=WORK,VOICE:${p}`));
+
+    emails.forEach((e) =>
+      lines.push(`EMAIL;TYPE=WORK,INTERNET:${vcEscape(e)}`)
+    );
+
+    uniquePhones.forEach((p) =>
+      lines.push(`TEL;TYPE=WORK,VOICE:${p}`)
+    );
+
     if (c.address) lines.push(`ADR;TYPE=WORK:;;${vcEscape(c.address)};;;;`);
-    if (c.remarks) lines.push(`NOTE:${vcEscape(c.remarks)}`);
+
+    const note = c.remarks ? c.remarks.trim() : "";
+    if (note) lines.push(`NOTE:${vcEscape(note)}`);
 
     lines.push("END:VCARD");
     vcards.push(lines.join("\r\n"));
   }
+
   return vcards.join("\r\n");
 }
 
 // ── Component ────────────────────────────────────────────────────────────────
 
 export default function ContactsView({ onBack }: Props) {
-  const [contacts, setContacts]   = useState<SheetContact[]>([]);
-  const [loading, setLoading]     = useState(true);
-  const [error, setError]         = useState<string | null>(null);
-  const [query, setQuery]         = useState("");
-  const [sortKey, setSortKey]     = useState<SortKey>("latest");
-  const [sortDir, setSortDir]     = useState<SortDir>("desc");
-  const [expanded, setExpanded]   = useState<number | null>(null);
-  const [selected, setSelected]   = useState<Set<number>>(new Set());
+  const [contacts, setContacts] = useState<SheetContact[]>([]);
+  const [loading, setLoading]   = useState(true);
+  const [error, setError]       = useState<string | null>(null);
 
+  const [query, setQuery]       = useState("");
+  const [sortKey, setSortKey]   = useState<SortKey>("latest");
+  const [sortDir, setSortDir]   = useState<SortDir>("desc");
+
+  const [expanded, setExpanded] = useState<number | null>(null);
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+
+  // Load from Sheets API
   const load = async () => {
     setLoading(true);
     setError(null);
-    setSelected(new Set());
     try {
-      setContacts(await getSheetContacts());
+      const data = await getSheetContacts();
+      setContacts(data);
     } catch (e: any) {
       setError(e.message || "Failed to load contacts");
     } finally {
@@ -87,18 +108,27 @@ export default function ContactsView({ onBack }: Props) {
     }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+  }, []);
 
-  const toggleSort = (key: SortKey) => {
-    if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    else {
-      setSortKey(key);
-      setSortDir(key === "latest" ? "desc" : "asc");
+  // Clear selection on sort/query change to avoid index mismatch
+  useEffect(() => {
+    setSelected(new Set());
+  }, [sortKey, sortDir, query]);
+
+  // Toggle sorting
+  const toggleSort = (k: SortKey) => {
+    if (sortKey === k) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(k);
+      setSortDir(k === "latest" ? "desc" : "asc");
     }
-    setSelected(new Set()); // clear selection on sort change
   };
 
   // ── Filtered + sorted list ────────────────────────────────────────────────
+
   const filtered = useMemo(() => {
     const q = query.toLowerCase();
     const matched = contacts
@@ -114,7 +144,6 @@ export default function ContactsView({ onBack }: Props) {
 
     return matched.sort((a, b) => {
       if (sortKey === "latest") {
-        // original sheet order = insertion order; higher index = more recent
         return sortDir === "desc"
           ? b.originalIndex - a.originalIndex
           : a.originalIndex - b.originalIndex;
@@ -126,6 +155,7 @@ export default function ContactsView({ onBack }: Props) {
   }, [contacts, query, sortKey, sortDir]);
 
   // ── Selection helpers ────────────────────────────────────────────────────
+
   const toggleSelect = (filteredIdx: number, e: React.MouseEvent) => {
     e.stopPropagation();
     setSelected((prev) => {
@@ -159,26 +189,26 @@ export default function ContactsView({ onBack }: Props) {
 
   const SortIcon = ({ k }: { k: SortKey }) =>
     sortKey === k ? (
-      sortDir === "asc" ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />
+      sortDir === "asc" ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />
     ) : null;
 
   const allSelected = filtered.length > 0 && selected.size === filtered.length;
 
   return (
-    <div className={`space-y-5 ${selected.size > 0 ? "pb-24" : ""}`}>
+    <div className={`space-y-6 ${selected.size > 0 ? "pb-24" : ""}`}>
 
       {/* ── Header ────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-white">All Contacts</h2>
-          <p className="text-white/50 text-sm mt-0.5">
+          <h2 className="text-2xl font-bold text-on-surface">All Contacts</h2>
+          <p className="text-on-surface-variant/70 text-sm mt-0.5 font-body">
             {loading ? "Loading…" : `${contacts.length} saved in Google Sheet`}
           </p>
         </div>
         <button
           onClick={load}
           disabled={loading}
-          className="flex items-center gap-1.5 text-sm text-white/50 hover:text-white/80 transition-colors disabled:opacity-30 shrink-0"
+          className="flex items-center gap-1.5 text-sm text-on-surface-variant hover:text-primary transition-all disabled:opacity-30 shrink-0 font-semibold"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
           Refresh
@@ -187,15 +217,15 @@ export default function ContactsView({ onBack }: Props) {
 
       {/* ── Search ────────────────────────────────────────────────── */}
       <div className="relative">
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30 pointer-events-none" />
+        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-on-surface-variant/40 pointer-events-none" />
         <input
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search name, company, phone, email…"
-          className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-11 pr-4
-            text-sm text-white placeholder:text-white/25 outline-none
-            focus:border-violet-500/50 focus:bg-violet-500/5 transition-all duration-200"
+          className="w-full bg-white border border-surface-border rounded-xl py-3 pl-11 pr-4
+            text-sm text-on-surface placeholder:text-on-surface-variant/40 outline-none
+            focus:border-primary/50 focus:bg-primary/[0.01] transition-all duration-200 font-body"
         />
       </div>
 
@@ -205,34 +235,34 @@ export default function ContactsView({ onBack }: Props) {
           <button
             key={k}
             onClick={() => toggleSort(k)}
-            className={`flex items-center gap-1 px-3 py-1.5 rounded-full border transition-all capitalize text-xs
+            className={`flex items-center gap-1 px-4.5 py-2 rounded-full border transition-all capitalize text-xs font-bold font-body
               ${sortKey === k
-                ? "border-violet-500/60 bg-violet-500/15 text-violet-300"
-                : "border-white/10 bg-white/5 text-white/40 hover:text-white/70"
+                ? "border-primary bg-primary/10 text-primary"
+                : "border-surface-border bg-white text-on-surface-variant/75 hover:border-primary/40 hover:text-on-surface"
               }`}
           >
             {k} <SortIcon k={k} />
           </button>
         ))}
-        <span className="ml-auto text-white/30 text-xs shrink-0">
+        <span className="ml-auto text-on-surface-variant/50 text-xs shrink-0 font-body font-semibold">
           {filtered.length} result{filtered.length !== 1 ? "s" : ""}
         </span>
       </div>
 
-      {/* ── Select-all row (only when list has items) ──────────────── */}
+      {/* ── Select-all row ──────────────── */}
       {!loading && !error && filtered.length > 0 && (
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between pt-1">
           <button
             onClick={selectAll}
-            className="flex items-center gap-2 text-xs text-white/50 hover:text-white/80 transition-colors"
+            className="flex items-center gap-2 text-xs text-on-surface-variant hover:text-primary transition-colors font-bold font-body"
           >
             {allSelected
-              ? <CheckSquare className="w-4 h-4 text-violet-400" />
+              ? <CheckSquare className="w-4 h-4 text-primary" />
               : <Square className="w-4 h-4" />}
             {allSelected ? "Deselect all" : "Select all"}
           </button>
           {selected.size > 0 && (
-            <span className="text-xs text-fuchsia-400 font-medium">
+            <span className="text-xs text-secondary font-bold font-body">
               {selected.size} selected
             </span>
           )}
@@ -241,26 +271,26 @@ export default function ContactsView({ onBack }: Props) {
 
       {/* ── States ────────────────────────────────────────────────── */}
       {loading && (
-        <div className="flex flex-col items-center justify-center py-24 gap-3 text-white/40">
-          <Loader2 className="w-8 h-8 animate-spin text-violet-400" />
-          <p className="text-sm">Loading contacts…</p>
+        <div className="flex flex-col items-center justify-center py-24 gap-3 text-on-surface-variant/50">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <p className="text-sm font-semibold font-body">Loading contacts…</p>
         </div>
       )}
 
       {!loading && error && (
-        <div className="flex items-start gap-3 px-5 py-4 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-300">
+        <div className="flex items-start gap-3 px-5 py-4 rounded-2xl bg-red-50 border border-red-200 text-red-700">
           <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
           <div>
-            <p className="font-semibold text-sm">Could not load contacts</p>
-            <p className="text-xs text-red-300/70 mt-0.5">{error}</p>
+            <p className="font-bold text-sm font-body">Could not load contacts</p>
+            <p className="text-xs text-red-600/80 mt-0.5 font-body">{error}</p>
           </div>
         </div>
       )}
 
       {!loading && !error && filtered.length === 0 && (
-        <div className="flex flex-col items-center justify-center py-24 gap-2 text-white/30">
-          <User className="w-10 h-10" />
-          <p className="text-sm">
+        <div className="flex flex-col items-center justify-center py-24 gap-2 text-on-surface-variant/40">
+          <User className="w-10 h-10 stroke-[1.5]" />
+          <p className="text-sm font-semibold font-body">
             {query ? "No contacts match your search" : "No contacts saved yet"}
           </p>
         </div>
@@ -279,36 +309,36 @@ export default function ContactsView({ onBack }: Props) {
               <div
                 key={i}
                 onClick={() => setExpanded(isOpen ? null : i)}
-                className={`glass rounded-2xl p-5 cursor-pointer border transition-all duration-200 relative
+                className={`bg-white border rounded-2xl p-5 cursor-pointer transition-all duration-200 relative shadow-sm hover:shadow-md
                   ${isSel
-                    ? "border-fuchsia-500/50 bg-fuchsia-500/5 shadow-lg shadow-fuchsia-500/10"
+                    ? "border-secondary bg-secondary/[0.02] ring-1 ring-secondary/20 shadow-md shadow-secondary/5"
                     : isOpen
-                    ? "border-violet-500/40 bg-violet-500/5 shadow-lg shadow-violet-500/10"
-                    : "border-white/[0.06] hover:border-white/20"
+                    ? "border-primary bg-primary/[0.01] ring-1 ring-primary/10 shadow-md shadow-primary/5"
+                    : "border-surface-border hover:border-primary/20"
                   }`}
               >
                 {/* Select checkbox */}
                 <button
                   onClick={(e) => toggleSelect(i, e)}
-                  className="absolute top-4 right-4 text-white/30 hover:text-fuchsia-400 transition-colors z-10 p-1"
+                  className="absolute top-4.5 right-4.5 text-on-surface-variant/40 hover:text-secondary transition-colors z-10 p-1"
                   title={isSel ? "Deselect" : "Select"}
                 >
                   {isSel
-                    ? <CheckSquare className="w-4 h-4 text-fuchsia-400" />
+                    ? <CheckSquare className="w-4 h-4 text-secondary" />
                     : <Square className="w-4 h-4" />}
                 </button>
 
                 {/* Name & Company */}
-                <div className="flex items-start gap-3 mb-3 pr-8">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500/30 to-fuchsia-500/30 border border-violet-500/20 flex items-center justify-center shrink-0">
-                    <User className="w-5 h-5 text-violet-300" />
+                <div className="flex items-start gap-3.5 mb-3 pr-8">
+                  <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/25 flex items-center justify-center shrink-0">
+                    <User className="w-5 h-5 text-primary" />
                   </div>
                   <div className="min-w-0">
-                    <p className="font-semibold text-white text-sm truncate">
-                      {c.name || <span className="text-white/30 italic">No name</span>}
+                    <p className="font-bold text-on-surface text-sm truncate font-body">
+                      {c.name || <span className="text-on-surface-variant/30 italic font-semibold">No name</span>}
                     </p>
                     {c.company && (
-                      <p className="text-xs text-white/50 truncate flex items-center gap-1 mt-0.5">
+                      <p className="text-xs text-on-surface-variant/70 truncate flex items-center gap-1 mt-0.5 font-body">
                         <Building2 className="w-3 h-3 shrink-0" /> {c.company}
                       </p>
                     )}
@@ -317,50 +347,50 @@ export default function ContactsView({ onBack }: Props) {
 
                 {/* Primary phone + email */}
                 {phones[0] && (
-                  <div className="flex items-center gap-2 text-xs text-white/60 mb-1.5">
-                    <Phone className="w-3 h-3 text-emerald-400 shrink-0" />
+                  <div className="flex items-center gap-2 text-xs text-on-surface-variant/90 mb-1.5 font-body font-medium">
+                    <Phone className="w-3 h-3 text-emerald-600 shrink-0" />
                     <span className="truncate">{phones[0]}</span>
                     {phones.length > 1 && (
-                      <span className="text-white/30 shrink-0">+{phones.length - 1}</span>
+                      <span className="text-on-surface-variant/40 shrink-0 font-bold">+{phones.length - 1}</span>
                     )}
                   </div>
                 )}
                 {emails[0] && (
-                  <div className="flex items-center gap-2 text-xs text-white/60 mb-1.5">
-                    <Mail className="w-3 h-3 text-blue-400 shrink-0" />
+                  <div className="flex items-center gap-2 text-xs text-on-surface-variant/90 mb-1.5 font-body font-medium">
+                    <Mail className="w-3 h-3 text-primary shrink-0" />
                     <span className="truncate">{emails[0]}</span>
                   </div>
                 )}
 
                 {/* Expanded details */}
                 {isOpen && (
-                  <div className="mt-3 pt-3 border-t border-white/10 space-y-2">
+                  <div className="mt-3.5 pt-3.5 border-t border-surface-border space-y-2">
                     {phones.slice(1).map((p, j) => (
-                      <div key={j} className="flex items-center gap-2 text-xs text-white/60">
-                        <Phone className="w-3 h-3 text-emerald-400 shrink-0" /> {p}
+                      <div key={j} className="flex items-center gap-2 text-xs text-on-surface-variant/90 font-body font-medium">
+                        <Phone className="w-3 h-3 text-emerald-600 shrink-0" /> {p}
                       </div>
                     ))}
                     {emails.slice(1).map((e, j) => (
-                      <div key={j} className="flex items-center gap-2 text-xs text-white/60">
-                        <Mail className="w-3 h-3 text-blue-400 shrink-0" /> {e}
+                      <div key={j} className="flex items-center gap-2 text-xs text-on-surface-variant/90 font-body font-medium">
+                        <Mail className="w-3 h-3 text-primary shrink-0" /> {e}
                       </div>
                     ))}
                     {c.address && (
-                      <div className="flex items-start gap-2 text-xs text-white/60">
-                        <MapPin className="w-3 h-3 text-orange-400 shrink-0 mt-0.5" />
+                      <div className="flex items-start gap-2 text-xs text-on-surface-variant/90 font-body font-medium">
+                        <MapPin className="w-3 h-3 text-amber-600 shrink-0 mt-0.5" />
                         <span>{c.address}</span>
                       </div>
                     )}
                     {c.remarks && (
-                      <div className="flex items-start gap-2 text-xs text-white/50 mt-1 pt-2 border-t border-white/[0.06]">
-                        <MessageSquare className="w-3 h-3 text-violet-400 shrink-0 mt-0.5" />
-                        <span className="italic">{c.remarks}</span>
+                      <div className="flex items-start gap-2 text-xs text-on-surface-variant/75 mt-1.5 pt-2.5 border-t border-surface-border">
+                        <MessageSquare className="w-3 h-3 text-secondary shrink-0 mt-0.5" />
+                        <span className="italic font-body">{c.remarks}</span>
                       </div>
                     )}
                   </div>
                 )}
 
-                <p className="text-[10px] text-white/20 text-right mt-3">
+                <p className="text-[10px] text-on-surface-variant/30 text-right mt-3 font-semibold font-body">
                   {isOpen ? "tap to collapse" : "tap to expand"}
                 </p>
               </div>
@@ -371,26 +401,24 @@ export default function ContactsView({ onBack }: Props) {
 
       {/* ── Sticky bottom action bar (appears when items selected) ── */}
       {selected.size > 0 && (
-        <div className="fixed bottom-0 inset-x-0 z-50 p-4 bg-black/80 backdrop-blur-xl border-t border-white/10">
-          <div className="max-w-lg mx-auto flex items-center gap-3">
+        <div className="fixed bottom-0 inset-x-0 z-50 p-4 bg-white/95 backdrop-blur-xl border-t border-surface-border shadow-2xl">
+          <div className="max-w-lg mx-auto flex items-center gap-4">
             <div className="flex-1">
-              <p className="text-white font-semibold text-sm">
+              <p className="text-on-surface font-bold text-sm font-body">
                 {selected.size} contact{selected.size > 1 ? "s" : ""} selected
               </p>
-              <p className="text-white/40 text-xs">Tap Download to save as .vcf</p>
+              <p className="text-on-surface-variant/60 text-xs font-semibold font-body">Tap Download to save as .vcf</p>
             </div>
             <button
               onClick={() => setSelected(new Set())}
-              className="text-xs text-white/40 hover:text-white/70 transition-colors px-2 py-1"
+              className="text-xs text-on-surface-variant/60 hover:text-primary transition-colors px-2 py-1 font-bold font-body"
             >
               Clear
             </button>
             <button
               onClick={downloadSelected}
-              className="flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-semibold
-                bg-gradient-to-r from-fuchsia-600 to-violet-600
-                hover:from-fuchsia-500 hover:to-violet-500
-                text-white transition-all active:scale-95 shadow-lg shadow-fuchsia-500/30"
+              className="flex items-center gap-1.5 px-5 py-3 rounded-full text-sm font-bold
+                bg-primary hover:bg-primary/95 text-white transition-all active:scale-95 shadow-md shadow-primary/20"
             >
               <Contact className="w-4 h-4" />
               Download (.vcf)
@@ -401,4 +429,3 @@ export default function ContactsView({ onBack }: Props) {
     </div>
   );
 }
-

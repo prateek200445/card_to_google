@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useCallback } from "react";
-import { Scan, ChevronRight, RotateCcw, BookUser } from "lucide-react";
+import { Zap, RotateCcw, BookUser, ChevronRight, Sparkles } from "lucide-react";
 
 import UploadZone from "@/components/UploadZone";
 import BatchProgress from "@/components/BatchProgress";
@@ -22,8 +22,10 @@ export default function HomePage() {
   const { upload, uploadPct, isUploading, error: uploadError } = useUpload();
   const { status, isDone } = useJobPolling(jobId);
 
-  // Wake up the backend immediately on page load (avoids cold-start delay on upload)
-  React.useEffect(() => { warmupBackend(); }, []);
+  // Wake up the backend immediately on page load
+  React.useEffect(() => {
+    warmupBackend();
+  }, []);
 
   // When processing finishes, fetch final results
   const prevDone = React.useRef(false);
@@ -64,109 +66,91 @@ export default function HomePage() {
   const llmCount = results.filter((r) => r.method === "llm").length;
 
   return (
-    <main className="min-h-screen relative z-10">
+    <main className="min-h-screen flex flex-col relative overflow-x-hidden antialiased">
       {/* ── Nav ─────────────────────────────────────────────────── */}
-      <nav className="sticky top-0 z-50 border-b border-white/[0.06] bg-black/30 backdrop-blur-xl">
-        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-600 flex items-center justify-center shadow-lg shadow-violet-500/30">
-              <Scan className="w-4 h-4 text-white" />
-            </div>
-            <span className="font-bold text-white tracking-tight">CardScan <span className="gradient-text">AI</span></span>
+      <nav className="bg-white/90 backdrop-blur-md border-b border-surface-border text-on-surface font-body font-medium fixed top-0 w-full z-50 flex justify-between items-center px-6 md:px-8 h-20">
+        <div className="flex items-center gap-3 cursor-pointer" onClick={reset}>
+          <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center shadow-md shadow-primary/20">
+            <Zap className="w-5 h-5 text-white" />
           </div>
+          <span className="text-xl font-headline font-bold text-on-surface tracking-tight">CardScan AI</span>
+        </div>
 
-          <div className="flex items-center gap-3">
-            {stage !== "upload" && stage !== "contacts" && (
-              <button
-                onClick={reset}
-                className="flex items-center gap-1.5 text-sm text-white/50 hover:text-white/80 transition-colors"
-              >
-                <RotateCcw className="w-3.5 h-3.5" /> New Batch
-              </button>
-            )}
-
-            {/* All Contacts button */}
+        <div className="flex items-center gap-4 md:gap-8 text-sm font-medium tracking-wide">
+          {stage !== "upload" && stage !== "contacts" ? (
             <button
-              onClick={() => setStage(stage === "contacts" ? "upload" : "contacts")}
-              className={`flex items-center gap-1.5 text-sm font-medium transition-colors ${
-                stage === "contacts"
-                  ? "text-violet-400"
-                  : "text-white/50 hover:text-white/80"
-              }`}
+              onClick={reset}
+              className="flex items-center gap-1.5 text-sm text-on-surface-variant hover:text-primary transition-colors font-bold font-body"
             >
-              <BookUser className="w-3.5 h-3.5" />
-              All Contacts
+              <RotateCcw className="w-4 h-4" /> New Batch
             </button>
+          ) : (
+            <button
+              onClick={() => { reset(); setStage("upload"); }}
+              className={`pb-1 font-bold font-body transition-colors ${stage === "upload" ? "text-primary border-b-2 border-primary" : "text-on-surface-variant hover:text-primary"}`}
+            >
+              Upload
+            </button>
+          )}
 
-            {/* Stage breadcrumb */}
-            <div className="hidden sm:flex items-center gap-1.5 text-xs text-white/30">
-              <span className={stage === "upload" ? "text-violet-400 font-semibold" : ""}>Upload</span>
-              <ChevronRight className="w-3 h-3" />
-              <span className={stage === "processing" ? "text-violet-400 font-semibold" : ""}>Processing</span>
-              <ChevronRight className="w-3 h-3" />
-              <span className={stage === "results" ? "text-violet-400 font-semibold" : ""}>Results</span>
-            </div>
-          </div>
+          <button
+            onClick={() => setStage(stage === "contacts" ? "upload" : "contacts")}
+            className="bg-on-surface text-white px-5 py-2.5 rounded-full font-headline font-semibold text-xs md:text-sm hover:bg-on-surface/90 transition-all active:scale-95 shadow-md shadow-on-surface/10 flex items-center gap-1.5"
+          >
+            <BookUser className="w-4 h-4" />
+            All Contacts
+          </button>
         </div>
       </nav>
 
-      <div className="max-w-6xl mx-auto px-6 py-12 space-y-12">
-
+      {/* Main Content Area */}
+      <div className="flex-grow pt-32 pb-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full flex flex-col items-center">
+        
         {/* ── Hero (only on upload stage) ──────────────────────── */}
         {stage === "upload" && (
-          <div className="text-center space-y-4 pt-4">
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-violet-500/30 bg-violet-500/10 text-violet-300 text-xs font-medium mb-2">
-              <Scan className="w-3 h-3" /> OCR + AI Hybrid Pipeline
+          <div className="text-center max-w-4xl mx-auto mb-16">
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white shadow-sm border border-surface-border text-primary font-bold text-xs tracking-wider uppercase mb-8 font-body">
+              <Zap className="w-3.5 h-3.5 text-primary" />
+              OCR + AI Hybrid Pipeline
             </div>
-            <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight text-white leading-tight">
-              Extract contacts from<br />
-              <span className="gradient-text">visiting cards instantly</span>
+            <h1 className="font-headline text-5xl md:text-7xl font-bold text-on-surface mb-6 tracking-tight leading-tight">
+              Extract contacts <br />
+              <span className="text-primary italic font-semibold">instantly.</span>
             </h1>
-            <p className="text-white/50 text-base sm:text-lg max-w-2xl mx-auto leading-relaxed">
-              Upload up to 25 business cards. Our hybrid pipeline uses OCR + rule-based extraction
-              first — LLM only kicks in when confidence is low. Export to Excel or Google Sheets.
+            <p className="text-lg md:text-xl text-on-surface-variant max-w-2xl mx-auto mb-10 leading-relaxed font-body">
+              Upload business cards or snap a photo. Our smart hybrid pipeline effortlessly pulls out names, numbers, and emails, ready for your workflow.
             </p>
-
-            {/* Stats pills */}
-            <div className="flex flex-wrap justify-center gap-3 pt-2">
-              {[
-                { label: "Up to 25 cards", color: "violet" },
-                { label: "OCR-first, LLM fallback", color: "fuchsia" },
-                { label: "Excel & Google Sheets", color: "blue" },
-              ].map(({ label, color }) => (
-                <span key={label} className={`px-3 py-1 rounded-full text-xs font-medium border
-                  bg-${color}-500/10 border-${color}-500/20 text-${color}-300`}>
-                  {label}
-                </span>
-              ))}
+            <div className="flex flex-wrap justify-center gap-3">
+              <span className="px-4 py-2 rounded-full bg-white border border-surface-border text-on-surface-variant text-sm shadow-sm font-semibold font-body">Up to 25 cards</span>
+              <span className="px-4 py-2 rounded-full bg-white border border-surface-border text-on-surface-variant text-sm shadow-sm font-semibold font-body">OCR-first, LLM fallback</span>
+              <span className="px-4 py-2 rounded-full bg-white border border-surface-border text-on-surface-variant text-sm shadow-sm font-semibold font-body">Excel &amp; Google Sheets</span>
             </div>
           </div>
         )}
 
         {/* ── Upload Stage ─────────────────────────────────────── */}
         {stage === "upload" && (
-          <div className="max-w-3xl mx-auto">
-            <div className="glass rounded-3xl p-8 shadow-2xl shadow-black/50">
-              <UploadZone
-                onFiles={handleFiles}
-                isUploading={isUploading}
-                uploadPct={uploadPct}
-              />
-              {uploadError && (
-                <p className="mt-4 text-sm text-red-400 text-center">{uploadError}</p>
-              )}
-            </div>
+          <div className="w-full max-w-6xl">
+            <UploadZone
+              onFiles={handleFiles}
+              isUploading={isUploading}
+              uploadPct={uploadPct}
+              onViewAll={() => setStage("contacts")}
+            />
+            {uploadError && (
+              <p className="mt-6 text-sm text-red-500 text-center font-semibold font-body">{uploadError}</p>
+            )}
           </div>
         )}
 
         {/* ── Processing Stage ─────────────────────────────────── */}
         {stage === "processing" && (
-          <div className="max-w-3xl mx-auto space-y-6">
-            <div className="text-center space-y-2">
-              <h2 className="text-2xl font-bold text-white">Processing your cards</h2>
-              <p className="text-white/50 text-sm">Sit tight — extraction runs in parallel</p>
+          <div className="max-w-3xl w-full mx-auto space-y-6">
+            <div className="text-center space-y-2 mb-8">
+              <h2 className="text-3xl font-headline font-bold text-on-surface">Processing your cards</h2>
+              <p className="text-on-surface-variant/80 text-sm font-body font-semibold">Sit tight — extraction runs in parallel</p>
             </div>
-            <div className="glass rounded-3xl p-8 shadow-2xl shadow-black/50">
+            <div className="bg-white border border-surface-border rounded-3xl p-8 shadow-xl">
               <BatchProgress status={status} />
             </div>
           </div>
@@ -174,28 +158,28 @@ export default function HomePage() {
 
         {/* ── Results Stage ────────────────────────────────────── */}
         {stage === "results" && results.length > 0 && (
-          <div className="space-y-8">
+          <div className="space-y-8 w-full max-w-6xl">
             {/* Summary bar */}
-            <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-surface-border pb-6">
               <div>
-                <h2 className="text-2xl font-bold text-white">Extracted Results</h2>
-                <p className="text-white/50 text-sm mt-0.5">
+                <h2 className="text-3xl font-headline font-bold text-on-surface">Extracted Results</h2>
+                <p className="text-on-surface-variant/85 text-sm mt-0.5 font-body font-semibold">
                   {doneCount} cards extracted successfully
                   {llmCount > 0 && ` · ${llmCount} used LLM fallback`}
                 </p>
               </div>
 
               {/* Aggregate stats */}
-              <div className="flex gap-3">
+              <div className="flex flex-wrap gap-2.5">
                 {[
-                  { label: "Total", value: results.length, color: "white/60" },
-                  { label: "Success", value: doneCount, color: "emerald-400" },
-                  { label: "LLM Used", value: llmCount, color: "fuchsia-400" },
-                  { label: "Failed", value: results.filter(r => r.error).length, color: "red-400" },
+                  { label: "Total", value: results.length, color: "text-on-surface" },
+                  { label: "Success", value: doneCount, color: "text-emerald-600" },
+                  { label: "LLM Used", value: llmCount, color: "text-secondary" },
+                  { label: "Failed", value: results.filter(r => r.error).length, color: "text-red-600" },
                 ].map(({ label, value, color }) => (
-                  <div key={label} className="glass rounded-xl px-4 py-2.5 text-center">
-                    <p className={`text-lg font-bold text-${color}`}>{value}</p>
-                    <p className="text-[10px] text-white/40 uppercase tracking-wider">{label}</p>
+                  <div key={label} className="bg-white border border-surface-border rounded-2xl px-4 py-2 text-center min-w-[76px] shadow-sm">
+                    <p className={`text-lg font-bold ${color}`}>{value}</p>
+                    <p className="text-[10px] text-on-surface-variant/50 font-bold uppercase tracking-wider font-body">{label}</p>
                   </div>
                 ))}
               </div>
@@ -205,7 +189,7 @@ export default function HomePage() {
             <ExportPanel jobId={jobId!} results={results} />
 
             {/* Results grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 pt-4">
               {results.map((r, i) => (
                 <ResultCard
                   key={r.image + i}
@@ -215,26 +199,35 @@ export default function HomePage() {
                 />
               ))}
             </div>
-
           </div>
         )}
 
         {/* ── Contacts Stage ────────────────────────────────────── */}
         {stage === "contacts" && (
-          <ContactsView onBack={() => setStage("upload")} />
+          <div className="w-full max-w-6xl">
+            <ContactsView onBack={() => setStage("upload")} />
+          </div>
         )}
       </div>
 
-      {/* ── Footer ──────────────────────────────────────────────── */}
-      <footer className="border-t border-white/[0.06] mt-20 py-8">
-        <div className="max-w-6xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="flex items-center gap-2 text-white/30 text-sm">
-            <Scan className="w-3.5 h-3.5" />
-            <span>CardScan AI — OCR + LLM Hybrid Pipeline</span>
+      {/* Footer */}
+      <footer className="bg-white border-t border-surface-border text-on-surface-variant font-body text-sm w-full py-10 mt-auto">
+        <div className="flex flex-col md:flex-row justify-between items-center gap-6 px-6 md:px-8 max-w-7xl mx-auto w-full">
+          <div className="flex flex-col items-center md:items-start gap-2">
+            <div className="font-headline text-lg font-bold text-on-surface flex items-center gap-2">
+              <div className="w-6 h-6 rounded bg-primary flex items-center justify-center">
+                <Zap className="w-3.5 h-3.5 text-white" />
+              </div>
+              CardScan AI
+            </div>
+            <p className="text-xs text-on-surface-variant/60 font-semibold tracking-wide">© 2026 CardScan AI. Precision in curation.</p>
           </div>
-          <p className="text-white/20 text-xs">
-            Data processed locally. LLM used only when confidence &lt; 70%.
-          </p>
+          <div className="flex flex-wrap justify-center gap-6 md:gap-8 text-sm font-semibold">
+            <a className="hover:text-primary transition-colors" href="#">Privacy Policy</a>
+            <a className="hover:text-primary transition-colors" href="#">Terms of Service</a>
+            <a className="hover:text-primary transition-colors" href="#">Cookies</a>
+            <a className="hover:text-primary transition-colors" href="#">Legal</a>
+          </div>
         </div>
       </footer>
     </main>
