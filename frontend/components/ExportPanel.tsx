@@ -9,7 +9,6 @@ import {
   ExternalLink,
   CheckCircle2,
   MessageSquare,
-  Target,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -25,7 +24,6 @@ export default function ExportPanel({ jobId, results }: Props) {
 
   // ── New fields ──────────────────────────────────────────────────────────
   const [remarks, setRemarks] = useState("");
-  const [purpose, setPurpose] = useState("");
 
   const handleExcel = async () => {
     setExcelLoading(true);
@@ -48,7 +46,7 @@ export default function ExportPanel({ jobId, results }: Props) {
         results,
         undefined,
         remarks || undefined,
-        purpose || undefined
+        undefined
       );
       setSheetsUrl(url);
       toast.success("Data appended to Google Sheets!");
@@ -72,7 +70,7 @@ export default function ExportPanel({ jobId, results }: Props) {
       </div>
 
       {/* ── Chat-box inputs ─────────────────────────────────────────── */}
-      <div className="px-5 pt-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="px-5 pt-5">
         {/* Remarks */}
         <div className="flex flex-col gap-1.5">
           <label className="flex items-center gap-1.5 text-xs font-semibold text-white/60 uppercase tracking-wider">
@@ -96,34 +94,6 @@ export default function ExportPanel({ jobId, results }: Props) {
             {remarks && (
               <span className="absolute bottom-2 right-3 text-[10px] text-white/25">
                 {remarks.length} chars
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Purpose */}
-        <div className="flex flex-col gap-1.5">
-          <label className="flex items-center gap-1.5 text-xs font-semibold text-white/60 uppercase tracking-wider">
-            <Target className="w-3.5 h-3.5 text-fuchsia-400" />
-            Purpose
-          </label>
-          <div
-            className="relative rounded-xl border border-white/10 bg-white/[0.04]
-              focus-within:border-fuchsia-500/60 focus-within:bg-fuchsia-500/5
-              transition-all duration-200"
-          >
-            <textarea
-              id="export-purpose"
-              value={purpose}
-              onChange={(e) => setPurpose(e.target.value)}
-              placeholder="What is the purpose of scanning these cards? (e.g. Sales meeting, Conference, Follow-up)"
-              rows={3}
-              className="w-full bg-transparent resize-none px-4 py-3 text-sm text-white
-                placeholder:text-white/25 outline-none leading-relaxed"
-            />
-            {purpose && (
-              <span className="absolute bottom-2 right-3 text-[10px] text-white/25">
-                {purpose.length} chars
               </span>
             )}
           </div>
