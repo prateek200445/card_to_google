@@ -232,7 +232,7 @@ async def extract_from_image(
     if raw is not None:
         is_valid, reason = validate_result(raw)
         if is_valid:
-            logger.info("[%s] ✓ Google AI Studio succeeded as primary method", filename)
+            logger.info("[%s] [OK] Google AI Studio succeeded as primary method", filename)
             return sanitize(raw), "primary", "success"
         logger.warning("[%s] Google AI Studio result failed validation: %s", filename, reason)
 
@@ -287,13 +287,13 @@ async def extract_from_image(
                     is_valid, reason = validate_result(raw_or)
                     if is_valid:
                         logger.info(
-                            "[%s] ✓ Valid result model=%s key=#%d attempt=%d method=%s",
+                            "[%s] [OK] Valid result model=%s key=#%d attempt=%d method=%s",
                             filename, model, key_idx + 1, attempt, method,
                         )
                         return sanitize(raw_or), method, "success"
 
                     logger.warning(
-                        "[%s] ✗ Validation failed model=%s key=#%d attempt=%d reason=%s",
+                        "[%s] [FAIL] Validation failed model=%s key=#%d attempt=%d reason=%s",
                         filename, model, key_idx + 1, attempt, reason,
                     )
                     goto_vision = True

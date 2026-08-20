@@ -33,7 +33,7 @@ _MODELS: List[str] = [
     m.strip()
     for m in os.getenv(
         "GOOGLE_AI_MODELS",
-        "gemini-2.5-flash,gemma-4-26b-a4b-it,gemma-4-31b-it,gemma-3-27b-it",
+        "gemini-3.6-flash,gemini-2.5-flash,gemma-4-26b-a4b-it,gemma-4-31b-it",
     ).split(",")
     if m.strip()
 ]
@@ -80,6 +80,15 @@ async def _call_single_model(
     Call one Google AI Studio model.
     Returns (result_dict, is_rate_limited).
     """
+    generation_config: Dict[str, Any] = {"temperature": 0.0}
+    
+    # Configure thinking config for latency optimization
+    if model.startswith("gemini-3"):
+        generation_config["thinkingConfig"] = {"thinkingLevel": "LOW"}
+    elif model.startswith("gemini-2.5"):
+        # Lower thinking budget to 1024 or set to 0 to disable
+        generation_config["thinkingConfig"] = {"thinkingBudget": 1024}
+
     url = f"{_BASE_URL}/{model}:generateContent"
     payload = {
         "contents": [
@@ -90,7 +99,7 @@ async def _call_single_model(
                 ]
             }
         ],
-        "generationConfig": {"temperature": 0.0},
+        "generationConfig": generation_config,
     }
 
     try:
@@ -137,7 +146,7 @@ async def _call_single_model(
             return None, False
 
         result = json.loads(text)
-        logger.info("[%s] ✓ Google AI Studio succeeded (model=%s)", filename, model)
+        logger.info("[%s] [OK] Google AI Studio succeeded (model=%s)", filename, model)
         return result, False
 
     except httpx.TimeoutException:
