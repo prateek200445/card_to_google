@@ -13,6 +13,7 @@ export default function CameraCapture({ onCapture, onClose }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const frameRef = useRef<HTMLDivElement>(null);  // ref for the card alignment box
 
   const [isReady, setIsReady] = useState(false);
   const [captured, setCaptured] = useState<string | null>(null);
@@ -54,16 +55,42 @@ export default function CameraCapture({ onCapture, onClose }: Props) {
     };
   }, [facingMode, startCamera]);
 
-  // ── Capture frame ────────────────────────────────────────────────────────
+  // ── Capture frame — crop to card alignment box ──────────────────────────
   const capture = useCallback(() => {
-    if (!videoRef.current || !canvasRef.current || !isReady) return;
+    if (!videoRef.current || !canvasRef.current || !isReady || !frameRef.current) return;
     const v = videoRef.current;
     const c = canvasRef.current;
-    c.width = v.videoWidth;
-    c.height = v.videoHeight;
     const ctx = c.getContext("2d");
     if (!ctx) return;
-    ctx.drawImage(v, 0, 0);
+
+    // Bounding rects in screen pixels
+    const videoRect = v.getBoundingClientRect();
+    const frameRect = frameRef.current.getBoundingClientRect();
+
+    // object-cover scale: video fills the element, potentially clipping sides
+    const scaleX = videoRect.width  / v.videoWidth;
+    const scaleY = videoRect.height / v.videoHeight;
+    const scale  = Math.max(scaleX, scaleY);
+
+    // How far the scaled video is offset inside the element (may be negative = clipped)
+    const offsetX = (videoRect.width  - v.videoWidth  * scale) / 2;
+    const offsetY = (videoRect.height - v.videoHeight * scale) / 2;
+
+    // Frame position relative to video element top-left
+    const relX = frameRect.left - videoRect.left;
+    const relY = frameRect.top  - videoRect.top;
+
+    // Map to actual video pixel coordinates
+    const cropX = (relX - offsetX) / scale;
+    const cropY = (relY - offsetY) / scale;
+    const cropW = frameRect.width  / scale;
+    const cropH = frameRect.height / scale;
+
+    // Set canvas to crop dimensions (in real video pixels → high quality)
+    c.width  = Math.round(cropW);
+    c.height = Math.round(cropH);
+    ctx.drawImage(v, Math.round(cropX), Math.round(cropY), Math.round(cropW), Math.round(cropH), 0, 0, c.width, c.height);
+
     // Flash animation
     setFlash(true);
     setTimeout(() => setFlash(false), 180);
@@ -120,6 +147,7 @@ export default function CameraCapture({ onCapture, onClose }: Props) {
 
             {/* Card frame */}
             <div
+              ref={frameRef}
               className="relative z-10"
               style={{ width: "82%", maxWidth: "360px", aspectRatio: "1.586" }}
             >
