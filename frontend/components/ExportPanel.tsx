@@ -9,6 +9,7 @@ import {
   ExternalLink,
   CheckCircle2,
   MessageSquare,
+  Contact,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -17,13 +18,86 @@ interface Props {
   results: CardResult[];
 }
 
-export default function ExportPanel({ jobId, results }: Props) {
-  const [excelLoading, setExcelLoading] = useState(false);
-  const [sheetsLoading, setSheetsLoading] = useState(false);
-  const [sheetsUrl, setSheetsUrl] = useState<string | null>(null);
+// ── vCard helpers ────────────────────────────────────────────────────────────
 
-  // ── New fields ──────────────────────────────────────────────────────────
-  const [remarks, setRemarks] = useState("");
+/** Strip everything that isn't a digit so "+91 98765-43210" === "9876543210" */
+function normalizePhone(phone: string): string {
+  return phone.replace(/\D/g, "");
+}
+
+/** Escape special vCard characters */
+function vcEscape(s: string): string {
+  return s.replace(/\\/g, "\\\\").replace(/,/g, "\\,").replace(/\n/g, "\\n").replace(/;/g, "\\;");
+}
+
+/**
+ * Build a deduplicated .vcf string from CardResult[].
+ * - Normalised phone numbers that were already seen in a previous card are skipped.
+ * - Cards with errors are skipped entirely.
+ */
+function generateVcf(results: CardResult[]): { vcf: string; contactCount: number; skippedPhones: number } {
+  const seenPhones = new Set<string>();
+  const vcards: string[] = [];
+  let skippedPhones = 0;
+
+  for (const r of results) {
+    if (r.error) continue;
+
+    // Deduplicate phones globally across all cards
+    const uniquePhones: string[] = [];
+    for (const p of r.phones) {
+      const norm = normalizePhone(p);
+      if (!norm) continue;
+      if (seenPhones.has(norm)) {
+        skippedPhones++;
+      } else {
+        seenPhones.add(norm);
+        uniquePhones.push(p);
+      }
+    }
+
+    const displayName = r.name || r.company || "Unknown Contact";
+
+    const lines: string[] = [
+      "BEGIN:VCARD",
+      "VERSION:3.0",
+      `FN:${vcEscape(displayName)}`,
+    ];
+
+    // Structured name: Last;First;Middle;Prefix;Suffix
+    if (r.name) {
+      const parts = r.name.trim().split(/\s+/);
+      const last  = parts.length > 1 ? parts[parts.length - 1] : "";
+      const first = parts.length > 1 ? parts.slice(0, -1).join(" ") : parts[0];
+      lines.push(`N:${vcEscape(last)};${vcEscape(first)};;;`);
+    }
+
+    if (r.company) lines.push(`ORG:${vcEscape(r.company)}`);
+
+    uniquePhones.forEach((p) =>
+      lines.push(`TEL;TYPE=WORK,VOICE:${p}`)
+    );
+
+    r.emails.forEach((e) =>
+      lines.push(`EMAIL;TYPE=WORK,INTERNET:${vcEscape(e)}`)
+    );
+
+    if (r.address) lines.push(`ADR;TYPE=WORK:;;${vcEscape(r.address)};;;;`);
+
+    lines.push("END:VCARD");
+    vcards.push(lines.join("\r\n"));
+  }
+
+  return { vcf: vcards.join("\r\n"), contactCount: vcards.length, skippedPhones };
+}
+
+// ── Component ────────────────────────────────────────────────────────────────
+
+export default function ExportPanel({ jobId, results }: Props) {
+  const [excelLoading, setExcelLoading]   = useState(false);
+  const [sheetsLoading, setSheetsLoading] = useState(false);
+  const [sheetsUrl, setSheetsUrl]         = useState<string | null>(null);
+  const [remarks, setRemarks]             = useState("");
 
   const handleExcel = async () => {
     setExcelLoading(true);
@@ -41,13 +115,7 @@ export default function ExportPanel({ jobId, results }: Props) {
     setSheetsLoading(true);
     setSheetsUrl(null);
     try {
-      const url = await exportToSheets(
-        jobId,
-        results,
-        undefined,
-        remarks || undefined,
-        undefined
-      );
+      const url = await exportToSheets(jobId, results, undefined, remarks || undefined, undefined);
       setSheetsUrl(url);
       toast.success("Data appended to Google Sheets!");
     } catch (e: any) {
@@ -55,6 +123,27 @@ export default function ExportPanel({ jobId, results }: Props) {
     } finally {
       setSheetsLoading(false);
     }
+  };
+
+  const handleVcf = () => {
+    const valid = results.filter((r) => !r.error);
+    if (valid.length === 0) {
+      toast.error("No valid contacts to export.");
+      return;
+    }
+    const { vcf, contactCount, skippedPhones } = generateVcf(valid);
+    const blob = new Blob([vcf], { type: "text/vcard;charset=utf-8" });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement("a");
+    a.href     = url;
+    a.download = `contacts_${new Date().toISOString().slice(0, 10)}.vcf`;
+    a.click();
+    URL.revokeObjectURL(url);
+
+    const msg = skippedPhones > 0
+      ? `${contactCount} contacts saved · ${skippedPhones} duplicate number${skippedPhones > 1 ? "s" : ""} removed`
+      : `${contactCount} contacts saved to .vcf`;
+    toast.success(msg);
   };
 
   const validCount = results.filter((r) => !r.error).length;
@@ -69,9 +158,8 @@ export default function ExportPanel({ jobId, results }: Props) {
         </p>
       </div>
 
-      {/* ── Chat-box inputs ─────────────────────────────────────────── */}
+      {/* ── Remarks ───────────────────────────────────────────────────── */}
       <div className="px-5 pt-5">
-        {/* Remarks */}
         <div className="flex flex-col gap-1.5">
           <label className="flex items-center gap-1.5 text-xs font-semibold text-white/60 uppercase tracking-wider">
             <MessageSquare className="w-3.5 h-3.5 text-violet-400" />
@@ -100,7 +188,7 @@ export default function ExportPanel({ jobId, results }: Props) {
         </div>
       </div>
 
-      {/* ── Export Buttons ───────────────────────────────────────────── */}
+      {/* ── Export Buttons ────────────────────────────────────────────── */}
       <div className="p-5 flex flex-col sm:flex-row gap-3">
         {/* Excel */}
         <button
@@ -112,9 +200,7 @@ export default function ExportPanel({ jobId, results }: Props) {
             disabled:opacity-50 disabled:cursor-not-allowed
             active:scale-[0.98] transition-all duration-200 shadow-lg shadow-emerald-500/20 text-white"
         >
-          {excelLoading
-            ? <Loader2 className="w-4 h-4 animate-spin" />
-            : <Download className="w-4 h-4" />}
+          {excelLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
           Download Excel (.xlsx)
         </button>
 
@@ -128,10 +214,22 @@ export default function ExportPanel({ jobId, results }: Props) {
             disabled:opacity-50 disabled:cursor-not-allowed
             active:scale-[0.98] transition-all duration-200 shadow-lg shadow-blue-500/20 text-white"
         >
-          {sheetsLoading
-            ? <Loader2 className="w-4 h-4 animate-spin" />
-            : <Sheet className="w-4 h-4" />}
+          {sheetsLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sheet className="w-4 h-4" />}
           Push to Google Sheets
+        </button>
+
+        {/* vCard / Contacts */}
+        <button
+          onClick={handleVcf}
+          disabled={validCount === 0}
+          className="flex-1 flex items-center justify-center gap-2.5 py-3.5 px-5 rounded-xl font-semibold text-sm
+            bg-gradient-to-r from-fuchsia-600 to-violet-600
+            hover:from-fuchsia-500 hover:to-violet-500
+            disabled:opacity-50 disabled:cursor-not-allowed
+            active:scale-[0.98] transition-all duration-200 shadow-lg shadow-fuchsia-500/20 text-white"
+        >
+          <Contact className="w-4 h-4" />
+          Save to Contacts (.vcf)
         </button>
       </div>
 
