@@ -26,14 +26,14 @@ from utils.logger import get_logger
 logger = get_logger(__name__)
 
 _API_KEY = os.getenv("GOOGLE_AI_API_KEY", "").strip()
-_REQUEST_TIMEOUT = float(os.getenv("REQUEST_TIMEOUT", "45.0"))
+_REQUEST_TIMEOUT = float(os.getenv("REQUEST_TIMEOUT", "7.0"))
 
 # Comma-separated model fallback chain
 _MODELS: List[str] = [
     m.strip()
     for m in os.getenv(
         "GOOGLE_AI_MODELS",
-        "gemma-4-26b-a4b-it,gemini-2.5-flash,gemma-4-31b-it,gemma-3-27b-it",
+        "gemini-2.5-flash,gemma-4-26b-a4b-it,gemma-4-31b-it,gemma-3-27b-it",
     ).split(",")
     if m.strip()
 ]
