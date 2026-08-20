@@ -2,7 +2,36 @@
  * Typed API client for the Card Extractor backend.
  */
 
-const BASE = process.env.NEXT_PUBLIC_API_URL || "/api";
+const getApiBase = () => {
+  if (typeof window === "undefined") {
+    return process.env.NEXT_PUBLIC_API_URL || "/api";
+  }
+
+  const envUrl = process.env.NEXT_PUBLIC_API_URL;
+  if (envUrl) {
+    try {
+      const url = new URL(envUrl);
+      // If NEXT_PUBLIC_API_URL is pointing to localhost/127.0.0.1, but we are accessing from another host
+      // (like mobile IP or ngrok), fallback to relative path `/api` so that the local Next.js
+      // dev server handles the rewrite/proxy to uvicorn on localhost.
+      if (
+        (url.hostname === "localhost" || url.hostname === "127.0.0.1") &&
+        window.location.hostname !== "localhost" &&
+        window.location.hostname !== "127.0.0.1"
+      ) {
+        return "/api";
+      }
+    } catch {
+      // ignore
+    }
+    return envUrl.replace(/\/$/, "");
+  }
+
+  return "/api";
+};
+
+const BASE = getApiBase();
+
 
 // ── Warm-up ───────────────────────────────────────────────────────────────
 // Call this on page load to wake the backend (cold-start on free-tier hosts).

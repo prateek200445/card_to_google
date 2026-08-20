@@ -2,7 +2,7 @@
 
 import React, { useCallback, useState, useEffect } from "react";
 import { useDropzone } from "react-dropzone";
-import { Upload, X, AlertCircle, Camera, BookUser, ChevronRight, Sparkles } from "lucide-react";
+import { Upload, X, AlertCircle, Camera, BookUser, ChevronRight, Sparkles, Loader2 } from "lucide-react";
 import dynamic from "next/dynamic";
 import { getSheetContacts } from "@/lib/api";
 
@@ -34,27 +34,27 @@ export default function UploadZone({ onFiles, isUploading, uploadPct, disabled, 
   const [validationError, setValidationError] = useState<string | null>(null);
   const [cameraOpen, setCameraOpen] = useState(false);
   const [recent, setRecent] = useState<any[]>([]);
+  const [loadingRecent, setLoadingRecent] = useState(true);
+  const [errorRecent, setErrorRecent] = useState<string | null>(null);
 
   // Load recent contacts for bento grid Card 3
   useEffect(() => {
+    setLoadingRecent(true);
+    setErrorRecent(null);
     getSheetContacts()
       .then((data) => {
         if (data && data.length > 0) {
           setRecent(data.slice(0, 3));
         } else {
-          setRecent([
-            { name: "Elena Rodriguez", emails: "elena.r@techcorp.io" },
-            { name: "Marcus Chen", emails: "m.chen@designstudio.com" },
-            { name: "David Sterling", emails: "david@sterlingfinance.net" },
-          ]);
+          setRecent([]);
         }
       })
-      .catch(() => {
-        setRecent([
-          { name: "Elena Rodriguez", emails: "elena.r@techcorp.io" },
-          { name: "Marcus Chen", emails: "m.chen@designstudio.com" },
-          { name: "David Sterling", emails: "david@sterlingfinance.net" },
-        ]);
+      .catch((err) => {
+        setErrorRecent(err.message || "Failed to load recent contacts");
+        setRecent([]);
+      })
+      .finally(() => {
+        setLoadingRecent(false);
       });
   }, []);
 
@@ -168,7 +168,28 @@ export default function UploadZone({ onFiles, isUploading, uploadPct, disabled, 
               </button>
             </div>
             <div className="flex flex-col gap-1.5 md:gap-3 flex-1 justify-center">
-              {recent.map((c, i) => {
+              {loadingRecent && (
+                <div className="flex flex-col items-center justify-center py-4 gap-2 text-on-surface-variant/50">
+                  <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                  <span className="text-[10px] md:text-xs font-semibold font-body">Loading...</span>
+                </div>
+              )}
+
+              {!loadingRecent && errorRecent && (
+                <div className="flex flex-col items-center justify-center py-4 text-center text-red-500/80 gap-1">
+                  <AlertCircle className="w-5 h-5 text-red-500" />
+                  <span className="text-[10px] md:text-xs font-semibold font-body">{errorRecent}</span>
+                </div>
+              )}
+
+              {!loadingRecent && !errorRecent && recent.length === 0 && (
+                <div className="flex flex-col items-center justify-center py-4 text-center text-on-surface-variant/40">
+                  <BookUser className="w-6 h-6 stroke-[1.5]" />
+                  <span className="text-[10px] md:text-xs font-semibold font-body">No contacts yet</span>
+                </div>
+              )}
+
+              {!loadingRecent && !errorRecent && recent.map((c, i) => {
                 const mail = c.emails ? c.emails.split(";")[0] : "no email";
                 return (
                   <div
