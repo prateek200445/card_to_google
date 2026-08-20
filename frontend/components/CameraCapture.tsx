@@ -33,8 +33,10 @@ export default function CameraCapture({ onCapture, onClose }: Props) {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: mode,
-          width: { ideal: 1920 },
-          height: { ideal: 1080 },
+          width:  { ideal: 4096 },
+          height: { ideal: 2160 },
+          // ask for the highest frame quality the device supports
+          advanced: [{ width: 4096 }, { width: 3840 }, { width: 1920 }],
         },
       });
       streamRef.current = stream;
@@ -86,15 +88,23 @@ export default function CameraCapture({ onCapture, onClose }: Props) {
     const cropW = frameRect.width  / scale;
     const cropH = frameRect.height / scale;
 
-    // Set canvas to crop dimensions (in real video pixels → high quality)
-    c.width  = Math.round(cropW);
-    c.height = Math.round(cropH);
-    ctx.drawImage(v, Math.round(cropX), Math.round(cropY), Math.round(cropW), Math.round(cropH), 0, 0, c.width, c.height);
+    // Output at 2× the cropped video pixels for sharper result
+    const DPR = 2;
+    c.width  = Math.round(cropW * DPR);
+    c.height = Math.round(cropH * DPR);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(
+      v,
+      Math.round(cropX), Math.round(cropY),
+      Math.round(cropW), Math.round(cropH),
+      0, 0, c.width, c.height
+    );
 
     // Flash animation
     setFlash(true);
     setTimeout(() => setFlash(false), 180);
-    setCaptured(c.toDataURL("image/jpeg", 0.92));
+    setCaptured(c.toDataURL("image/jpeg", 0.95));
   }, [isReady]);
 
   const retake = () => setCaptured(null);
