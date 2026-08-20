@@ -33,7 +33,7 @@ _MODELS: List[str] = [
     m.strip()
     for m in os.getenv(
         "GOOGLE_AI_MODELS",
-        "gemini-2.5-flash,gemma-4-26b-a4b-it,gemma-4-31b-it,gemma-3-27b-it",
+        "gemma-4-26b-a4b-it,gemini-2.5-flash,gemma-4-31b-it,gemma-3-27b-it",
     ).split(",")
     if m.strip()
 ]

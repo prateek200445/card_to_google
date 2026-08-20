@@ -220,36 +220,36 @@ async def extract_from_image(
     filename: str,
 ) -> Tuple[Dict[str, Any], str, str]:
     """
-    Full extraction pipeline with smart key rotation and immediate Gemini fallback.
-
-    Key rotation strategy:
-      • 429 rate limit on a key  → rotate to next API key (same model)
-      • Any other failure        → jump straight to Gemini AI Studio
-                                   (no point burning remaining keys on a card
-                                    the model can't read, e.g. Hindi/stylised fonts)
-
-    Returns:
-        (result_dict, method, status)
-        method: "primary" | "fallback"
-        status: "success" | "failed"
+    Inverted extraction pipeline:
+      1. Google AI Studio (Primary)
+      2. OpenRouter (Fallback)
+      3. Google Vision + Text LLM (Second Fallback)
     """
+    # ── 1. Google AI Studio (Primary) ──────────────────────────────────────────
+    from core.gemini_ocr import extract_from_image as gemini_extract
+    logger.info("[%s] Primary OCR Attempt: Google AI Studio", filename)
+    raw = await gemini_extract(image_path, filename)
+    if raw is not None:
+        is_valid, reason = validate_result(raw)
+        if is_valid:
+            logger.info("[%s] ✓ Google AI Studio succeeded as primary method", filename)
+            return sanitize(raw), "primary", "success"
+        logger.warning("[%s] Google AI Studio result failed validation: %s", filename, reason)
+
+    # ── 2. OpenRouter (Fallback) ──────────────────────────────────────────────
+    logger.warning("[%s] Google AI Studio failed — trying OpenRouter fallback", filename)
     b64, mime = _encode_image(image_path)
-    method = "primary"
-    all_rate_limited = True   # True only when every single failure was a 429
-    goto_gemini = False       # set True on non-429 failure → skip outer loops
+    method = "fallback"
+    all_rate_limited = True
+    goto_vision = False
 
     async with _get_semaphore():
         for model_idx, model in enumerate(_MODELS):
-            if goto_gemini:
+            if goto_vision:
                 break
 
-            if model_idx > 0:
-                method = "fallback"
-                logger.info("[%s] Switching to fallback model: %s", filename, model)
-
-            # ── Rotate keys — only on 429 ─────────────────────────────────
             for key_idx, api_key in enumerate(_API_KEYS):
-                if goto_gemini:
+                if goto_vision:
                     break
 
                 if key_idx > 0:
@@ -264,65 +264,46 @@ async def extract_from_image(
                         filename, model, key_idx + 1, attempt,
                     )
 
-                    raw, is_rate_limited = await _call_model(b64, mime, model, filename, api_key)
+                    raw_or, is_rate_limited = await _call_model(b64, mime, model, filename, api_key)
 
-                    # 429 → rotate to next key
                     if is_rate_limited:
                         logger.warning(
                             "[%s] Key #%d hit 429 on model=%s — rotating to next key",
                             filename, key_idx + 1, model,
                         )
-                        break  # break attempt loop → outer for tries next key
-
-                    # Non-429 response → at least one real attempt was made
-                    all_rate_limited = False
-
-                    if raw is None:
-                        # Model returned nothing (unrecognised/Hindi card) → Gemini now
-                        logger.warning(
-                            "[%s] model=%s key=#%d attempt=%d: no data — "
-                            "card unrecognised, jumping to Gemini",
-                            filename, model, key_idx + 1, attempt,
-                        )
-                        goto_gemini = True
                         break
 
-                    is_valid, reason = validate_result(raw)
+                    all_rate_limited = False
+
+                    if raw_or is None:
+                        logger.warning(
+                            "[%s] model=%s key=#%d attempt=%d: no data — "
+                            "card unrecognised, jumping to next phase",
+                            filename, model, key_idx + 1, attempt,
+                        )
+                        goto_vision = True
+                        break
+
+                    is_valid, reason = validate_result(raw_or)
                     if is_valid:
                         logger.info(
                             "[%s] ✓ Valid result model=%s key=#%d attempt=%d method=%s",
                             filename, model, key_idx + 1, attempt, method,
                         )
-                        return sanitize(raw), method, "success"
+                        return sanitize(raw_or), method, "success"
 
-                    # Validation failed (bad extraction) → Gemini now
                     logger.warning(
-                        "[%s] ✗ Validation failed model=%s key=#%d attempt=%d reason=%s — "
-                        "jumping to Gemini",
+                        "[%s] ✗ Validation failed model=%s key=#%d attempt=%d reason=%s",
                         filename, model, key_idx + 1, attempt, reason,
                     )
-                    goto_gemini = True
-                    break  # stop attempts; key/model loops check goto_gemini
+                    goto_vision = True
+                    break
 
-    # ── Gemini AI Studio fallback ─────────────────────────────────────────────
-    if all_rate_limited:
-        logger.warning(
-            "[%s] All %d OpenRouter keys hit 429 — falling back to Gemini AI Studio",
-            filename, len(_API_KEYS),
-        )
-    else:
-        logger.warning(
-            "[%s] OpenRouter could not read this card — falling back to Gemini AI Studio",
-            filename,
-        )
-
-    from core.gemini_ocr import extract_from_image as gemini_extract
-    raw = await gemini_extract(image_path, filename)
-    if raw is not None:
-        is_valid, reason = validate_result(raw)
-        if is_valid:
-            return sanitize(raw), "fallback", "success"
-        logger.warning("[%s] Gemini result failed validation: %s", filename, reason)
+    # ── 3. Google Vision (Last resort fallback) ────────────────────────────────
+    logger.warning("[%s] OpenRouter failed — trying Google Vision fallback", filename)
+    vision_res = await _google_vision_fallback(image_path, filename)
+    if vision_res is not None:
+        return sanitize(vision_res), "fallback", "success"
 
     logger.error("[%s] All methods failed. Returning empty result.", filename)
     return _empty_result(), "fallback", "failed"
