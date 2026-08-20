@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useRef, useState, useCallback, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { X, RotateCcw, Check, SwitchCamera, Zap } from "lucide-react";
 
 interface Props {
@@ -85,7 +86,7 @@ export default function CameraCapture({ onCapture, onClose }: Props) {
     setFacingMode((m) => (m === "environment" ? "user" : "environment"));
   };
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-[100] bg-black flex flex-col">
       {/* ── Camera / Preview area ────────────────────────────────────── */}
       <div className="relative flex-1 overflow-hidden">
@@ -232,9 +233,11 @@ export default function CameraCapture({ onCapture, onClose }: Props) {
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
+
 
 // ── Corner bracket helper ──────────────────────────────────────────────────
 
