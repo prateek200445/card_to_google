@@ -68,26 +68,26 @@ export default function HomePage() {
   return (
     <main className="min-h-screen flex flex-col relative overflow-x-hidden antialiased">
       {/* ── Nav ─────────────────────────────────────────────────── */}
-      <nav className="bg-white/90 backdrop-blur-md border-b border-surface-border text-on-surface font-body font-medium fixed top-0 w-full z-50 flex justify-between items-center px-6 md:px-8 h-20">
-        <div className="flex items-center gap-3 cursor-pointer" onClick={reset}>
-          <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center shadow-md shadow-primary/20">
-            <Zap className="w-5 h-5 text-white" />
+      <nav className="bg-white/90 backdrop-blur-md border-b border-surface-border text-on-surface font-body font-medium fixed top-0 w-full z-50 flex justify-between items-center px-4 md:px-8 h-16 md:h-20">
+        <div className="flex items-center gap-2 md:gap-3 cursor-pointer shrink-0" onClick={reset}>
+          <div className="w-7.5 h-7.5 md:w-9 md:h-9 rounded-lg md:rounded-xl bg-primary flex items-center justify-center shadow-md shadow-primary/20">
+            <Zap className="w-4 h-4 md:w-5 md:h-5 text-white" />
           </div>
-          <span className="text-xl font-headline font-bold text-on-surface tracking-tight">CardScan AI</span>
+          <span className="text-sm md:text-xl font-headline font-bold text-on-surface tracking-tight whitespace-nowrap">CardScan AI</span>
         </div>
 
-        <div className="flex items-center gap-4 md:gap-8 text-sm font-medium tracking-wide">
+        <div className="flex items-center gap-3 md:gap-8 text-xs md:text-sm font-medium tracking-wide">
           {stage !== "upload" && stage !== "contacts" ? (
             <button
               onClick={reset}
-              className="flex items-center gap-1.5 text-sm text-on-surface-variant hover:text-primary transition-colors font-bold font-body"
+              className="flex items-center gap-1 text-xs md:text-sm text-on-surface-variant hover:text-primary transition-colors font-bold font-body"
             >
-              <RotateCcw className="w-4 h-4" /> New Batch
+              <RotateCcw className="w-3.5 h-3.5" /> New
             </button>
           ) : (
             <button
               onClick={() => { reset(); setStage("upload"); }}
-              className={`pb-1 font-bold font-body transition-colors ${stage === "upload" ? "text-primary border-b-2 border-primary" : "text-on-surface-variant hover:text-primary"}`}
+              className={`pb-0.5 font-bold font-body transition-colors ${stage === "upload" ? "text-primary border-b-2 border-primary" : "text-on-surface-variant hover:text-primary"}`}
             >
               Upload
             </button>
@@ -95,32 +95,32 @@ export default function HomePage() {
 
           <button
             onClick={() => setStage(stage === "contacts" ? "upload" : "contacts")}
-            className="bg-on-surface text-white px-5 py-2.5 rounded-full font-headline font-semibold text-xs md:text-sm hover:bg-on-surface/90 transition-all active:scale-95 shadow-md shadow-on-surface/10 flex items-center gap-1.5"
+            className="bg-on-surface text-white px-3.5 py-2 md:px-5 md:py-2.5 rounded-full font-headline font-semibold text-[10px] md:text-sm hover:bg-on-surface/90 transition-all active:scale-95 shadow-md shadow-on-surface/10 flex items-center gap-1"
           >
-            <BookUser className="w-4 h-4" />
-            All Contacts
+            <BookUser className="w-3.5 h-3.5" />
+            <span className="whitespace-nowrap">All Contacts</span>
           </button>
         </div>
       </nav>
 
       {/* Main Content Area */}
-      <div className="flex-grow pt-32 pb-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full flex flex-col items-center">
+      <div className="flex-grow pt-24 md:pt-32 pb-16 md:pb-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full flex flex-col items-center">
         
         {/* ── Hero (only on upload stage) ──────────────────────── */}
         {stage === "upload" && (
-          <div className="text-center max-w-4xl mx-auto mb-16">
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white shadow-sm border border-surface-border text-primary font-bold text-xs tracking-wider uppercase mb-8 font-body">
+          <div className="text-center max-w-4xl mx-auto mb-6 md:mb-12">
+            <div className="hidden sm:inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white shadow-sm border border-surface-border text-primary font-bold text-xs tracking-wider uppercase mb-6 md:mb-8 font-body">
               <Zap className="w-3.5 h-3.5 text-primary" />
               OCR + AI Hybrid Pipeline
             </div>
-            <h1 className="font-headline text-5xl md:text-7xl font-bold text-on-surface mb-6 tracking-tight leading-tight">
+            <h1 className="font-headline text-3xl sm:text-5xl md:text-7xl font-bold text-on-surface mb-3 md:mb-6 tracking-tight leading-tight">
               Extract contacts <br />
               <span className="text-primary italic font-semibold">instantly.</span>
             </h1>
-            <p className="text-lg md:text-xl text-on-surface-variant max-w-2xl mx-auto mb-10 leading-relaxed font-body">
+            <p className="text-xs sm:text-base md:text-lg text-on-surface-variant max-w-xl mx-auto mb-4 md:mb-10 leading-relaxed font-body">
               Upload business cards or snap a photo. Our smart hybrid pipeline effortlessly pulls out names, numbers, and emails, ready for your workflow.
             </p>
-            <div className="flex flex-wrap justify-center gap-3">
+            <div className="hidden sm:flex flex-wrap justify-center gap-3">
               <span className="px-4 py-2 rounded-full bg-white border border-surface-border text-on-surface-variant text-sm shadow-sm font-semibold font-body">Up to 25 cards</span>
               <span className="px-4 py-2 rounded-full bg-white border border-surface-border text-on-surface-variant text-sm shadow-sm font-semibold font-body">OCR-first, LLM fallback</span>
               <span className="px-4 py-2 rounded-full bg-white border border-surface-border text-on-surface-variant text-sm shadow-sm font-semibold font-body">Excel &amp; Google Sheets</span>
