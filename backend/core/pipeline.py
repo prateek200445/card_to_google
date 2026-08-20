@@ -33,6 +33,21 @@ async def process_image(job_id: str, filename: str) -> CardResult:
 
     try:
         data, method, status = await extract_from_image(filepath, filename)
+        # ── Normalize and store ───────────────────────────────────────────
+        result = normalize(filename, data, method, status)
+
+        final_status = ProcessingStatus.DONE if status == "success" else ProcessingStatus.FAILED
+        error_msg = None if status == "success" else "All OCR models failed"
+
+        await job_store.update_status(
+            job_id, filename, final_status, result=result, error=error_msg
+        )
+
+        logger.info(
+            "Finished %s → status=%s method=%s confidence=%.2f",
+            filename, status, method, result.confidence,
+        )
+        return result
     except Exception as exc:
         logger.error("Pipeline crashed for %s: %s", filename, exc)
         result = CardResult(image=filename, error=str(exc), status="failed")
@@ -40,22 +55,16 @@ async def process_image(job_id: str, filename: str) -> CardResult:
             job_id, filename, ProcessingStatus.FAILED, result=result, error=str(exc)
         )
         return result
-
-    # ── Normalize and store ───────────────────────────────────────────
-    result = normalize(filename, data, method, status)
-
-    final_status = ProcessingStatus.DONE if status == "success" else ProcessingStatus.FAILED
-    error_msg = None if status == "success" else "All OCR models failed"
-
-    await job_store.update_status(
-        job_id, filename, final_status, result=result, error=error_msg
-    )
-
-    logger.info(
-        "Finished %s → status=%s method=%s confidence=%.2f",
-        filename, status, method, result.confidence,
-    )
-    return result
+    finally:
+        # Delete the uploaded image file immediately after encoding/sending to LLM
+        # to conserve memory buffer cache and disk space on the host container.
+        try:
+            import os
+            if os.path.exists(filepath):
+                os.remove(filepath)
+                logger.info("Deleted source image file after LLM processing: %s", filepath)
+        except Exception as delete_exc:
+            logger.warning("Failed to delete source image %s: %s", filepath, delete_exc)
 
 
 async def process_batch(job_id: str, filenames: list[str]) -> list[CardResult]:
