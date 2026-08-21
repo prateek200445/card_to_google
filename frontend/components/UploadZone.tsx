@@ -44,7 +44,7 @@ export default function UploadZone({ onFiles, isUploading, uploadPct, disabled, 
     getSheetContacts()
       .then((data) => {
         if (data && data.length > 0) {
-          setRecent(data.slice(0, 3));
+          setRecent([...data].reverse().slice(0, 3));
         } else {
           setRecent([]);
         }
