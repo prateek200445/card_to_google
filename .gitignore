@@ -13,11 +13,11 @@ credintials.json
 !tsconfig.json
 !next-env.d.ts
 !app.json
-!eas.json
 
-# Mobile build directories
+# Mobile build directories and secret config
 mobile/android/
 mobile/ios/
+mobile/eas.json
 
 
 # API keys
