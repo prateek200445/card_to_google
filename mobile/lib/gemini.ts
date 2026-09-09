@@ -10,12 +10,13 @@ import * as FileSystem from 'expo-file-system/legacy';
 const GEMINI_KEY = process.env.EXPO_PUBLIC_GEMINI_KEY ?? '';
 const BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
 
-// Model fallback chain — same as backend
+// Model fallback chain — kept in sync with backend
 const MODELS = [
-  'gemini-2.0-flash',
+  'gemini-3.8-flash',
+  'gemini-3.6-flash',
   'gemini-2.5-flash',
-  'gemma-3-27b-it',
-]// Exact prompt copied from backend/core/gemini_ocr.py
+];
+// Exact prompt copied from backend/core/gemini_ocr.py
 const PROMPT = `You are an expert OCR system for Indian business cards containing Hindi and English text.
 
 Carefully read ALL visible text in the image — including stylized, decorative, and small fonts.
@@ -121,8 +122,15 @@ async function callModel(
       body: JSON.stringify(payload),
     });
 
-    if (res.status === 429) return null; // rate limited → try next
-    if (!res.ok) return null;
+    if (res.status === 429) {
+      console.warn(`[gemini] ${model}: rate limited (429)`);
+      return null;
+    }
+    if (!res.ok) {
+      const errBody = await res.text().catch(() => '');
+      console.warn(`[gemini] ${model}: HTTP ${res.status} — ${errBody.slice(0, 200)}`);
+      return null;
+    }
 
     const data = await res.json();
     const parts = data?.candidates?.[0]?.content?.parts ?? [];
@@ -141,7 +149,8 @@ async function callModel(
 
     if (!text) return null;
     return JSON.parse(text) as ExtractedCard;
-  } catch {
+  } catch (err) {
+    console.warn(`[gemini] ${model}: exception —`, err);
     return null;
   }
 }
