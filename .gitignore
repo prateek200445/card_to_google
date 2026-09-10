@@ -2,7 +2,11 @@
 .env
 *.env
 .env.*
+*.env.*
+**/.env
+**/.env.*
 !.env.example
+!**/.env.example
 
 # Google service account credentials
 credentials.json
@@ -12,6 +16,13 @@ credintials.json
 !package-lock.json
 !tsconfig.json
 !next-env.d.ts
+!app.json
+
+# Mobile build directories and secret config
+mobile/android/
+mobile/ios/
+mobile/eas.json
+
 
 # API keys
 key
